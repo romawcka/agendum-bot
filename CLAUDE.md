@@ -1,4 +1,4 @@
-# Notendar Bot
+# Agendum Bot
 
 Telegram-бот: пошагово превращает заметку в событие Google Calendar / Apple iCloud.
 
