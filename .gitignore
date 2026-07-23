@@ -1,7 +1,9 @@
 node_modules/
 dist/
-data/
-backups/
+data/*
+!data/.gitkeep
+backups/*
+!backups/.gitkeep
 .env
 .env.local
 *.log
