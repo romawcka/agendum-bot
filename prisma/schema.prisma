@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int      @id @default(autoincrement())
+  telegramId       BigInt   @unique
+  firstName        String?
+  username         String?
+  timezone         String? // IANA; null до онбординга
+  defaultAccountId Int? // выбранный календарь по умолчанию
+  defaultReminder  Int      @default(30) // минуты; задел на итерацию 3
+  isBlocked        Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  accounts CalendarAccount[]
+  events   Event[]
+  session  WizardSession?
+}
+
+model CalendarAccount {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  provider   String // "GOOGLE" | "CALDAV"
+  label      String // "Google Calendar" / "iCloud"
+  externalId String // calendarId (Google) или URL коллекции (CalDAV)
+  // Google:
+  accessToken  String? // зашифровано
+  refreshToken String? // зашифровано
+  expiresAt    DateTime?
+  // CalDAV:
+  caldavUrl  String?
+  caldavUser String?
+  caldavPass String? // зашифровано
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events Event[]
+
+  @@unique([userId, provider])
+}
+
+model Event {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  accountId       Int
+  externalId      String // ID события в календаре
+  title           String
+  description     String?
+  allDay          Boolean
+  startsAt        DateTime // UTC
+  endsAt          DateTime? // UTC; null для all-day
+  timezone        String
+  reminderMinutes Int
+  status          String   @default("ACTIVE") // "ACTIVE" | "DELETED"
+  createdAt       DateTime @default(now())
+
+  user    User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account CalendarAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startsAt])
+}
+
+model WizardSession {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  state     String // JSON-строка: текущий шаг + собранные поля
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OAuthState {
+  state      String   @id // случайный nonce
+  telegramId BigInt
+  expiresAt  DateTime
+}
+
+// enum-ов нет: SQLite их не поддерживает.
+// В коде (src/types/enums.ts):
+//   export const PROVIDERS = ['GOOGLE', 'CALDAV'] as const;
+//   export type Provider = typeof PROVIDERS[number];
+//   export const EVENT_STATUSES = ['ACTIVE', 'DELETED'] as const;
+//   export type EventStatus = typeof EVENT_STATUSES[number];

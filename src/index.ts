@@ -1,10 +1,13 @@
 import { webhookCallback } from "grammy";
 import { createApp } from "./app.js";
 import { bot } from "./bot/bot.js";
+import { initDatabase, prisma } from "./config/db.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 
 async function main(): Promise<void> {
+  await initDatabase();
+
   const app = createApp();
 
   if (env.BOT_MODE === "webhook") {
@@ -36,6 +39,7 @@ async function main(): Promise<void> {
     if (env.BOT_MODE === "polling") {
       await bot.stop();
     }
+    await prisma.$disconnect();
     process.exit(0);
   };
 
