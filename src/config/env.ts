@@ -1,5 +1,10 @@
-import "dotenv/config";
+import { config as loadDotenv } from "dotenv";
 import { z } from "zod";
+
+// override: true — Vite/Vitest inject their own process.env.BASE_URL ("/"),
+// which would otherwise silently shadow ours since dotenv doesn't overwrite
+// already-set variables by default.
+loadDotenv({ override: true });
 
 const envSchema = z
   .object({
