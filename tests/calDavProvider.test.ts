@@ -100,7 +100,7 @@ describe("CalDavProvider.createEvent", () => {
 
     await expect(CalDavProvider.createEvent(fakeAccount(), DRAFT)).rejects.toMatchObject({
       code: "caldav_unauthorized",
-      userMessage: expect.stringContaining("Пароль для iCloud"),
+      userMessage: "Пароль для iCloud більше не працює. Онови його в /settings",
     });
   });
 

@@ -12,7 +12,7 @@ export async function allowlistMiddleware(ctx: BotContext, next: NextFunction): 
 
   if (!allowlist.has(telegramId.toString())) {
     await ctx.reply(
-      "Привет! Пока бот работает в закрытом режиме. Если тебе нужен доступ — напиши владельцу бота.",
+      "Привіт! Поки що бот працює в закритому режимі. Якщо тобі потрібен доступ — напиши власнику бота.",
     );
     return;
   }

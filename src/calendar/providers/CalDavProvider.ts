@@ -9,8 +9,8 @@ import type { CalendarProvider, CreatedEvent, DeletedEvent } from "../types.js";
 
 export const ICLOUD_SERVER_URL = "https://caldav.icloud.com";
 
-const CALENDAR_UNAVAILABLE_MESSAGE = "Календарь временно недоступен. Попробуй ещё раз через минуту";
-const CALDAV_UNAUTHORIZED_MESSAGE = "Пароль для iCloud больше не работает. Обнови его в /settings";
+const CALENDAR_UNAVAILABLE_MESSAGE = "Календар тимчасово недоступний. Спробуй ще раз за хвилину";
+const CALDAV_UNAUTHORIZED_MESSAGE = "Пароль для iCloud більше не працює. Онови його в /settings";
 
 export interface CalDavConnectionResult {
   ok: boolean;

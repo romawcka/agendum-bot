@@ -12,7 +12,7 @@ export class AppError extends Error {
   }
 }
 
-const FALLBACK_MESSAGE = "⚠️ Что-то пошло не так. Попробуй ещё раз чуть позже.";
+const FALLBACK_MESSAGE = "⚠️ Щось пішло не так. Спробуй ще раз трохи пізніше.";
 
 export function toUserMessage(err: unknown): string {
   return err instanceof AppError ? err.userMessage : FALLBACK_MESSAGE;

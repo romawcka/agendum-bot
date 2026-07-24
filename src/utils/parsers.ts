@@ -2,7 +2,7 @@ import { DateTime } from "luxon";
 
 const MAX_DURATION_MINUTES = 24 * 60;
 
-/** Strictly дд.мм.гггг. Returns YYYY-MM-DD or undefined if invalid. */
+/** Strictly дд.мм.рррр. Returns YYYY-MM-DD or undefined if invalid. */
 export function parseManualDate(text: string): string | undefined {
   const match = text.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
   if (!match) {
@@ -12,7 +12,7 @@ export function parseManualDate(text: string): string | undefined {
   return parsed.isValid ? parsed.toFormat("yyyy-MM-dd") : undefined;
 }
 
-/** Strictly ЧЧ:ММ, 00:00-23:59. Returns the normalized HH:mm or undefined if invalid. */
+/** Strictly ГГ:ХВ, 00:00-23:59. Returns the normalized HH:mm or undefined if invalid. */
 export function parseTime(text: string): string | undefined {
   const match = text.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
   return match ? `${match[1]}:${match[2]}` : undefined;
@@ -21,7 +21,7 @@ export function parseTime(text: string): string | undefined {
 export type DurationParseResult = { ok: true; minutes: number } | { ok: false; reason: "invalid" | "too_long" };
 
 /**
- * Accepts 30м, 45 мин, 1ч, 2 ч, 1ч30м, or a bare number of minutes (90).
+ * Accepts 30хв, 45 хв, 1год, 2 год, 1год30хв, or a bare number of minutes (90).
  * The UX doc has two distinct error messages (bad format vs. over 24h), so
  * this reports which one applies instead of collapsing both into undefined.
  */
@@ -32,7 +32,7 @@ export function parseDuration(text: string): DurationParseResult {
   if (/^\d+$/.test(normalized)) {
     totalMinutes = Number(normalized);
   } else {
-    const match = normalized.match(/^(?:(\d+)ч)?(?:(\d+)(?:мин|м))?$/);
+    const match = normalized.match(/^(?:(\d+)год)?(?:(\d+)хв)?$/);
     if (match && (match[1] || match[2])) {
       const hours = match[1] ? Number(match[1]) : 0;
       const minutes = match[2] ? Number(match[2]) : 0;

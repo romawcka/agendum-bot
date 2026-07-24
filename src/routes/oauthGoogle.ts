@@ -7,12 +7,12 @@ import { GOOGLE_CALENDAR_SCOPE, createGoogleOAuthClient, encryptGoogleTokens } f
 export const oauthGoogleRouter = Router();
 
 function htmlPage(body: string): string {
-  return `<!doctype html><html lang="ru"><meta charset="utf-8"><body style="font-family: sans-serif; text-align: center; padding-top: 3rem;"><p>${body}</p></body></html>`;
+  return `<!doctype html><html lang="uk"><meta charset="utf-8"><body style="font-family: sans-serif; text-align: center; padding-top: 3rem;"><p>${body}</p></body></html>`;
 }
 
-const LINK_INVALID_PAGE = htmlPage("Ссылка недействительна или истекла. Вернись в Telegram и попробуй снова.");
-const SUCCESS_PAGE = htmlPage("Можно вернуться в Telegram.");
-const GENERIC_ERROR_PAGE = htmlPage("Не получилось подключить Google Calendar. Вернись в Telegram и попробуй снова.");
+const LINK_INVALID_PAGE = htmlPage("Посилання недійсне або протермінувалося. Повернись у Telegram і спробуй знову.");
+const SUCCESS_PAGE = htmlPage("Можна повернутися в Telegram.");
+const GENERIC_ERROR_PAGE = htmlPage("Не вдалося підключити Google Calendar. Повернись у Telegram і спробуй знову.");
 
 oauthGoogleRouter.get("/start", async (req, res) => {
   const state = typeof req.query.state === "string" ? req.query.state : undefined;
@@ -99,7 +99,7 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
       },
     });
 
-    await bot.api.sendMessage(oauthState.telegramId.toString(), "✅ Google Calendar подключён.");
+    await bot.api.sendMessage(oauthState.telegramId.toString(), "✅ Google Calendar підключено.");
     res.send(SUCCESS_PAGE);
   } catch (err) {
     logger.error({ err }, "Ошибка при обработке Google OAuth callback");

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { Conversation } from "@grammyjs/conversations";
 import type { Context } from "grammy";
+import { InlineKeyboard } from "grammy";
 import { prisma } from "../../config/db.js";
 import { env } from "../../config/env.js";
 import type { BotContext } from "../context.js";
@@ -30,7 +31,7 @@ export async function connectGoogleCalendar(
 
   const link = `${env.BASE_URL}/oauth/google/start?state=${state}`;
 
-  await ctx.reply(
-    `Открой ссылку и разреши доступ к календарю:\n${link}\n\nСсылка живёт 10 минут. Как разрешишь — я напишу.`,
-  );
+  await ctx.reply("Натисни кнопку нижче і дозволь доступ до календаря.\n\nПосилання живе 10 хвилин. Як дозволиш — я напишу.", {
+    reply_markup: new InlineKeyboard().url("Підключити Google Calendar", link),
+  });
 }

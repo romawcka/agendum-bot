@@ -1,10 +1,9 @@
 import type { BotContext } from "../context.js";
+import { buildMainMenuKeyboard } from "../keyboards/mainMenuKeyboard.js";
 
 export async function startCommand(ctx: BotContext): Promise<void> {
   if (ctx.dbUser.timezone) {
-    await ctx.reply(
-      "Всё готово 🎉\n\n/new — создать событие\n/events — мои события\n/settings — настройки\n\nНачнём?",
-    );
+    await ctx.reply("Все готово 🎉\n\nЩо зробити?", { reply_markup: buildMainMenuKeyboard() });
     return;
   }
 

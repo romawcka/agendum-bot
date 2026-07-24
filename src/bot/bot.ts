@@ -10,6 +10,7 @@ import {
   eventsPageCallback,
 } from "./commands/events.js";
 import { fallbackTextHandler, helpCommand } from "./commands/help.js";
+import { menuEventsCallback, menuNewCallback, menuSettingsCallback, menuStartCallback } from "./commands/mainMenu.js";
 import { anotherEventCallback, newCommand } from "./commands/new.js";
 import { settingsCommand } from "./commands/settings.js";
 import { wizardStorage } from "./conversationStorage.js";
@@ -52,9 +53,26 @@ bot.callbackQuery("wizard:another", anotherEventCallback);
 bot.callbackQuery(/^events:page:/, eventsPageCallback);
 bot.callbackQuery(/^events:del:/, eventDeleteRequestCallback);
 bot.callbackQuery(/^events:confirm:/, eventDeleteConfirmCallback);
+bot.callbackQuery("menu:new", menuNewCallback);
+bot.callbackQuery("menu:events", menuEventsCallback);
+bot.callbackQuery("menu:settings", menuSettingsCallback);
+bot.callbackQuery("menu:start", menuStartCallback);
 
 bot.on("message:text", fallbackTextHandler);
 
 bot.catch((err) => {
   void handleBotError(err);
 });
+
+const BOT_COMMANDS = [
+  { command: "start", description: "Почати / перезапустити бота" },
+  { command: "new", description: "Створити подію" },
+  { command: "events", description: "Мої події" },
+  { command: "settings", description: "Часовий пояс, календарі" },
+  { command: "cancel", description: "Перервати поточний діалог" },
+  { command: "help", description: "Що вміє бот" },
+];
+
+export async function registerBotCommands(): Promise<void> {
+  await bot.api.setMyCommands(BOT_COMMANDS);
+}

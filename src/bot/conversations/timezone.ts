@@ -13,7 +13,7 @@ export function timezoneKeyboard(): InlineKeyboard {
     .text("Europe/Kyiv", "tz:set:Europe/Kyiv")
     .text("Asia/Tel_Aviv", "tz:set:Asia/Tel_Aviv")
     .row()
-    .text("⌨️ Ввести другой", "tz:manual");
+    .text("⌨️ Ввести інший", "tz:manual");
 }
 
 export async function collectTimezone(conversation: AnyConversation): Promise<string> {
@@ -26,7 +26,7 @@ export async function collectTimezone(conversation: AnyConversation): Promise<st
 
       if (callbackData === "tz:manual") {
         await update.reply(
-          "Напиши таймзону в формате IANA, например: Europe/Berlin\n" +
+          "Напиши таймзону у форматі IANA, наприклад: Europe/Berlin\n" +
             "Список: en.wikipedia.org/wiki/List_of_tz_database_time_zones",
         );
         continue;
@@ -44,6 +44,6 @@ export async function collectTimezone(conversation: AnyConversation): Promise<st
       return text;
     }
 
-    await update.reply("Не узнаю такую таймзону. Пример правильной: Europe/Berlin");
+    await update.reply("Не впізнаю таку таймзону. Приклад правильної: Europe/Berlin");
   }
 }

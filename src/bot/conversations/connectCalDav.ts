@@ -5,7 +5,7 @@ import { prisma } from "../../config/db.js";
 import { encrypt } from "../../utils/crypto.js";
 import type { BotContext } from "../context.js";
 
-const LOGIN_FAILED_MESSAGE = "❌ Не получилось войти. Проверь Apple ID и пароль приложения и пришли ещё раз.";
+const LOGIN_FAILED_MESSAGE = "❌ Не вдалося увійти. Перевір Apple ID і пароль застосунку та надішли ще раз.";
 
 function parseCredentials(text: string): { appleId: string; password: string } | undefined {
   const lines = text
@@ -32,12 +32,12 @@ export async function connectCalDavCalendar(
   }
 
   await ctx.reply(
-    "🍎 Для iCloud нужен пароль приложения — обычный пароль от Apple ID не подойдёт.\n\n" +
-      "1. Зайди на appleid.apple.com → «Вход и безопасность» → «Пароли приложений»\n" +
-      "2. Создай новый пароль, назови его, например, «Telegram Bot»\n" +
-      "3. Пришли мне одним сообщением:\n\n" +
-      "твой@apple.id\nxxxx-xxxx-xxxx-xxxx\n\n" +
-      "Сообщение с паролем я удалю сразу после проверки.",
+    "🍎 Для iCloud потрібен пароль застосунку — звичайний пароль від Apple ID не підійде.\n\n" +
+      "1. Зайди на appleid.apple.com → «Вхід і безпека» → «Паролі застосунків»\n" +
+      "2. Створи новий пароль, назви його, наприклад, «Telegram Bot»\n" +
+      "3. Надішли мені одним повідомленням:\n\n" +
+      "твій@apple.id\nxxxx-xxxx-xxxx-xxxx\n\n" +
+      "Повідомлення з паролем я видалю одразу після перевірки.",
   );
 
   for (;;) {
@@ -87,7 +87,7 @@ export async function connectCalDavCalendar(
       });
     });
 
-    await ctx.reply("✅ iCloud подключён. Сообщение с паролем удалено.");
+    await ctx.reply("✅ iCloud підключено. Повідомлення з паролем видалено.");
     return;
   }
 }

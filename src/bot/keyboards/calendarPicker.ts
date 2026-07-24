@@ -1,21 +1,21 @@
 import { InlineKeyboard } from "grammy";
 import { DateTime } from "luxon";
 
-const MONTH_NAMES_RU = [
-  "Январь",
-  "Февраль",
-  "Март",
-  "Апрель",
-  "Май",
-  "Июнь",
-  "Июль",
-  "Август",
-  "Сентябрь",
-  "Октябрь",
-  "Ноябрь",
-  "Декабрь",
+const MONTH_NAMES_UK = [
+  "Січень",
+  "Лютий",
+  "Березень",
+  "Квітень",
+  "Травень",
+  "Червень",
+  "Липень",
+  "Серпень",
+  "Вересень",
+  "Жовтень",
+  "Листопад",
+  "Грудень",
 ];
-const WEEKDAY_LABELS_RU = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const WEEKDAY_LABELS_UK = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
 
 const MAX_YEARS_RANGE = 3;
 const DAYS_PER_WEEK = 7;
@@ -64,11 +64,11 @@ export function buildCalendarKeyboard(yearMonth: string): InlineKeyboard {
 
   keyboard
     .text(canGoPrev ? "‹" : " ", canGoPrev ? `dp:prev:${prevMonth.toFormat("yyyy-MM")}` : "noop")
-    .text(`${MONTH_NAMES_RU[monthStart.month - 1]} ${monthStart.year}`, "noop")
+    .text(`${MONTH_NAMES_UK[monthStart.month - 1]} ${monthStart.year}`, "noop")
     .text(canGoNext ? "›" : " ", canGoNext ? `dp:next:${nextMonth.toFormat("yyyy-MM")}` : "noop")
     .row();
 
-  for (const label of WEEKDAY_LABELS_RU) {
+  for (const label of WEEKDAY_LABELS_UK) {
     keyboard.text(label, "noop");
   }
   keyboard.row();

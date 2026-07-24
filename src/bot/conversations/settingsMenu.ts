@@ -35,13 +35,13 @@ interface SettingsUser {
 
 function settingsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("🌍 Часовой пояс", "settings:timezone")
+    .text("🌍 Часовий пояс", "settings:timezone")
     .row()
-    .text("📅 Календарь по умолчанию", "settings:default_calendar")
+    .text("📅 Календар за замовчуванням", "settings:default_calendar")
     .row()
-    .text("🔗 Подключить / отключить календарь", "settings:connect")
+    .text("🔗 Підключити / відключити календар", "settings:connect")
     .row()
-    .text("🗑 Удалить все мои данные", "settings:delete_all");
+    .text("🗑 Видалити всі мої дані", "settings:delete_all");
 }
 
 function formatSettingsText(user: SettingsUser, accounts: CalendarAccount[]): string {
@@ -50,12 +50,12 @@ function formatSettingsText(user: SettingsUser, accounts: CalendarAccount[]): st
   const defaultAccount = accounts.find((a) => a.id === user.defaultAccountId && a.isActive);
 
   return [
-    "⚙️ Настройки",
+    "⚙️ Налаштування",
     "",
-    `Часовой пояс: ${user.timezone ?? "не задан"}`,
-    `Календарь по умолчанию: ${defaultAccount ? defaultAccount.label : "не выбран"}`,
-    `Подключено: Google ${google ? "✅" : "❌"}, iCloud ${caldav ? "✅" : "❌"}`,
-    `Напоминание: за ${user.defaultReminder} минут`,
+    `Часовий пояс: ${user.timezone ?? "не задано"}`,
+    `Календар за замовчуванням: ${defaultAccount ? defaultAccount.label : "не вибрано"}`,
+    `Підключено: Google ${google ? "✅" : "❌"}, iCloud ${caldav ? "✅" : "❌"}`,
+    `Нагадування: за ${user.defaultReminder} хвилин`,
   ].join("\n");
 }
 
@@ -64,10 +64,10 @@ async function handleTimezoneChange(
   ctx: Context,
   userId: number,
 ): Promise<"cancel" | "done" | "exit"> {
-  await ctx.reply("В каком ты часовом поясе?", { reply_markup: timezoneKeyboard() });
+  await ctx.reply("У якому ти часовому поясі?", { reply_markup: timezoneKeyboard() });
   const timezone = await collectTimezone(conversation);
   await conversation.external(() => prisma.user.update({ where: { id: userId }, data: { timezone } }));
-  await ctx.reply(`✅ Часовой пояс: ${timezone}`);
+  await ctx.reply(`✅ Часовий пояс: ${timezone}`);
   return "done";
 }
 
@@ -79,15 +79,16 @@ async function handleDefaultCalendarChange(
 ): Promise<"cancel" | "done"> {
   const active = accounts.filter((a) => a.isActive);
   if (active.length < 2) {
-    await ctx.reply("Подключи оба календаря, чтобы выбирать между ними: 🔗 Подключить / отключить календарь.");
+    await ctx.reply("Підключи обидва календарі, щоб вибирати між ними: 🔗 Підключити / відключити календар.");
     return "done";
   }
 
   const keyboard = new InlineKeyboard();
-  for (const account of active) {
-    keyboard.text(account.provider === "GOOGLE" ? "🟦 Google" : "🍎 iCloud", `defacct:${account.id}`);
-  }
-  await ctx.reply("Какой календарь сделать основным?", { reply_markup: keyboard });
+  active.forEach((account, i) => {
+    if (i > 0) keyboard.row();
+    keyboard.text(account.provider === "GOOGLE" ? "Google" : "iCloud", `defacct:${account.id}`);
+  });
+  await ctx.reply("Який календар зробити основним?", { reply_markup: keyboard });
 
   const validIds = new Set(active.map((a) => a.id));
   for (;;) {
@@ -99,7 +100,7 @@ async function handleDefaultCalendarChange(
     if (!validIds.has(id)) continue;
 
     await conversation.external(() => prisma.user.update({ where: { id: userId }, data: { defaultAccountId: id } }));
-    await ctx.reply("✅ Обновил календарь по умолчанию.");
+    await ctx.reply("✅ Оновив календар за замовчуванням.");
     return "done";
   }
 }
@@ -108,17 +109,17 @@ async function handleConnectDisconnect(
   conversation: SettingsConversation,
   ctx: Context,
   accounts: CalendarAccount[],
-): Promise<"cancel" | "done"> {
+): Promise<"cancel" | "done" | "exit"> {
   const google = accounts.find((a) => a.provider === "GOOGLE");
   const caldav = accounts.find((a) => a.provider === "CALDAV");
 
   const keyboard = new InlineKeyboard()
-    .text(google?.isActive ? "🟦 Google: отключить" : "🟦 Google: подключить", "conn:google")
+    .text(google?.isActive ? "Google: відключити" : "Google: підключити", "conn:google")
     .row()
-    .text(caldav?.isActive ? "🍎 iCloud: отключить" : "🍎 iCloud: подключить", "conn:caldav")
+    .text(caldav?.isActive ? "iCloud: відключити" : "iCloud: підключити", "conn:caldav")
     .row()
     .text("⬅️ Назад", "conn:back");
-  await ctx.reply("Управление календарями:", { reply_markup: keyboard });
+  await ctx.reply("Керування календарями:", { reply_markup: keyboard });
 
   for (;;) {
     const update = await nextUpdate(conversation);
@@ -132,17 +133,19 @@ async function handleConnectDisconnect(
     if (update.data === "conn:google") {
       if (google?.isActive) {
         await conversation.external(() => prisma.calendarAccount.update({ where: { id: google.id }, data: { isActive: false } }));
-        await ctx.reply("Google Calendar отключён.");
-      } else {
-        await connectGoogleCalendar(conversation, ctx);
+        await ctx.reply("Google Calendar відключено.");
+        return "done";
       }
-      return "done";
+      // Google-підключення асинхронне (користувач іде в браузер) — не показуємо
+      // застарілий екран налаштувань одразу після посилання, чекаємо OAuth callback.
+      await connectGoogleCalendar(conversation, ctx);
+      return "exit";
     }
 
     if (update.data === "conn:caldav") {
       if (caldav?.isActive) {
         await conversation.external(() => prisma.calendarAccount.update({ where: { id: caldav.id }, data: { isActive: false } }));
-        await ctx.reply("iCloud отключён.");
+        await ctx.reply("iCloud відключено.");
       } else {
         await connectCalDavCalendar(conversation, ctx);
       }
@@ -152,11 +155,11 @@ async function handleConnectDisconnect(
 }
 
 async function handleDeleteAll(conversation: SettingsConversation, ctx: Context, userId: number): Promise<"cancel" | "done" | "exit"> {
-  const keyboard = new InlineKeyboard().text("Да, удалить всё", "del:yes").text("Отмена", "del:no");
+  const keyboard = new InlineKeyboard().text("Так, видалити все", "del:yes").row().text("Скасувати", "del:no");
   await ctx.reply(
-    "⚠️ Это удалит твой профиль, подключённые календари и историю событий из бота.\n" +
-      "Сами события в календаре останутся.\n\n" +
-      "Точно удалить?",
+    "⚠️ Це видалить твій профіль, підключені календарі та історію подій з бота.\n" +
+      "Самі події в календарі залишаться.\n\n" +
+      "Точно видалити?",
     { reply_markup: keyboard },
   );
 
@@ -170,8 +173,8 @@ async function handleDeleteAll(conversation: SettingsConversation, ctx: Context,
     }
     if (update.data === "del:yes") {
       await conversation.external(() => prisma.user.delete({ where: { id: userId } }));
-      await ctx.reply("Готово. Все твои данные удалены.");
-      return "exit"; // deleted — nothing left to loop back to, and no "Отменил" message needed
+      await ctx.reply("Готово. Всі твої дані видалено.");
+      return "exit"; // deleted — nothing left to loop back to, and no "Скасував" message needed
     }
   }
 }
@@ -201,7 +204,7 @@ export async function settingsMenu(conversation: SettingsConversation, ctx: Cont
 
     const update = await nextUpdate(conversation);
     if (update.kind === "cancel") {
-      await ctx.reply("Отменил текущее действие.");
+      await ctx.reply("Скасував поточну дію.");
       return;
     }
     if (update.kind !== "callback") continue;
@@ -218,7 +221,7 @@ export async function settingsMenu(conversation: SettingsConversation, ctx: Cont
     }
 
     if (result === "cancel") {
-      await ctx.reply("Отменил текущее действие.");
+      await ctx.reply("Скасував поточну дію.");
       return;
     }
     if (result === "exit") {

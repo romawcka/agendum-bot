@@ -57,7 +57,7 @@ function buildEventsKeyboard(events: EventWithAccount[], from: number, page: num
     keyboard.text("◀️ Назад", `events:page:${page - 1}`);
   }
   if (page < totalPages) {
-    keyboard.text("Вперёд ▶️", `events:page:${page + 1}`);
+    keyboard.text("Вперед ▶️", `events:page:${page + 1}`);
   }
   return keyboard;
 }
@@ -71,7 +71,7 @@ async function renderEventsPage(ctx: BotContext, page: number, edit: boolean): P
   const all = await fetchUpcomingEvents(ctx.dbUser.id, timezone);
 
   if (all.length === 0) {
-    const text = "Пока нет предстоящих событий, созданных через бота.\n/new — создать первое";
+    const text = "Поки немає майбутніх подій, створених через бота.\n/new — створити першу";
     if (edit) {
       await ctx.editMessageText(text).catch(() => ctx.reply(text));
     } else {
@@ -87,7 +87,7 @@ async function renderEventsPage(ctx: BotContext, page: number, edit: boolean): P
   const to = from + pageEvents.length;
 
   const text = [
-    `📆 Ближайшие события (${from + 1}–${to} из ${all.length})`,
+    `📆 Найближчі події (${from + 1}–${to} з ${all.length})`,
     "",
     pageEvents.map((event, i) => formatEventLine(from + i + 1, event, timezone)).join("\n\n"),
   ].join("\n");
@@ -126,10 +126,11 @@ export async function eventDeleteRequestCallback(ctx: BotContext): Promise<void>
   const timezone = ctx.dbUser.timezone;
   if (!timezone) return;
 
-  const text = `Удалить событие?\n\n${event.title}\n${formatEventDateLine(event, timezone)}`;
+  const text = `Видалити подію?\n\n${event.title}\n${formatEventDateLine(event, timezone)}`;
   const keyboard = new InlineKeyboard()
-    .text("🗑 Да, удалить", `events:confirm:${event.id}:${page}`)
-    .text("⬅️ Отмена", `events:page:${page}`);
+    .text("🗑 Так, видалити", `events:confirm:${event.id}:${page}`)
+    .row()
+    .text("⬅️ Скасувати", `events:page:${page}`);
 
   await ctx.editMessageText(text, { reply_markup: keyboard }).catch(() => ctx.reply(text, { reply_markup: keyboard }));
 }
@@ -151,8 +152,8 @@ export async function eventDeleteConfirmCallback(ctx: BotContext): Promise<void>
     await prisma.event.update({ where: { id: event.id }, data: { status: "DELETED" } });
 
     const text = result.alreadyDeleted
-      ? "Это событие уже удалено из календаря. Убрал из списка."
-      : "✅ Событие удалено";
+      ? "Цю подію вже видалено з календаря. Прибрав зі списку."
+      : "✅ Подію видалено";
     await ctx.editMessageText(text).catch(() => ctx.reply(text));
   } catch (err) {
     logger.error({ err, eventId: event.id }, "Не удалось удалить событие");

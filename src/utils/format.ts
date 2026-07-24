@@ -11,7 +11,7 @@ export interface PreviewDraft {
 }
 
 function formatDateWithWeekday(date: string, timezone: string): string {
-  const dt = DateTime.fromFormat(date, "yyyy-MM-dd", { zone: timezone }).setLocale("ru");
+  const dt = DateTime.fromFormat(date, "yyyy-MM-dd", { zone: timezone }).setLocale("uk");
   return `${dt.toFormat("dd.MM.yyyy")} (${dt.toFormat("cccc")})`;
 }
 
@@ -21,30 +21,30 @@ function formatTimeRange(draft: PreviewDraft, timezone: string): { start: DateTi
 }
 
 export function formatPreview(draft: PreviewDraft, timezone: string, calendarLabel: string): string {
-  const lines = ["📋 Проверь событие", "", `Название: ${draft.title}`];
+  const lines = ["📋 Перевір подію", "", `Назва: ${draft.title}`];
 
   if (draft.description) {
-    lines.push(`Описание: ${draft.description}`);
+    lines.push(`Опис: ${draft.description}`);
   }
 
   lines.push(`Дата: ${formatDateWithWeekday(draft.date, timezone)}`);
 
   if (draft.allDay) {
-    lines.push("Время: весь день");
+    lines.push("Час: весь день");
   } else {
     const { start, end } = formatTimeRange(draft, timezone);
-    lines.push(`Время: ${start.toFormat("HH:mm")} – ${end.toFormat("HH:mm")} (${timezone})`);
+    lines.push(`Час: ${start.toFormat("HH:mm")} – ${end.toFormat("HH:mm")} (${timezone})`);
   }
 
-  lines.push(`Напоминание: за ${draft.reminderMinutes} минут`);
-  lines.push(`Календарь: ${calendarLabel}`);
+  lines.push(`Нагадування: за ${draft.reminderMinutes} хвилин`);
+  lines.push(`Календар: ${calendarLabel}`);
 
   return lines.join("\n");
 }
 
 export function formatSuccessCard(draft: PreviewDraft, timezone: string, calendarLabel: string): string {
   const dateOnly = DateTime.fromFormat(draft.date, "yyyy-MM-dd", { zone: timezone }).toFormat("dd.MM.yyyy");
-  const lines = ["✅ Событие создано", "", draft.title];
+  const lines = ["✅ Подію створено", "", draft.title];
 
   if (draft.allDay) {
     lines.push(`${dateOnly}, весь день`);

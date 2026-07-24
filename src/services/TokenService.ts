@@ -10,7 +10,7 @@ export type GoogleOAuthClient = InstanceType<typeof google.auth.OAuth2>;
 
 export const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
-const GOOGLE_TOKEN_EXPIRED_MESSAGE = "Доступ к Google Calendar истёк. Подключи заново: /settings";
+const GOOGLE_TOKEN_EXPIRED_MESSAGE = "Доступ до Google Calendar втрачено. Підключи знову: /settings";
 
 // Refresh a little before the real expiry to avoid racing a request against it.
 const EXPIRY_SAFETY_MARGIN_MS = 60_000;

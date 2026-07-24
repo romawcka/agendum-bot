@@ -19,8 +19,8 @@ type WizardConversation = Conversation<BotContext, Context>;
 const CANCEL = Symbol("wizard-cancel");
 type Cancellable<T> = T | typeof CANCEL;
 
-const CANCEL_TEXT = "Отменил. Ничего не создано.";
-const CANCEL_BUTTON = { text: "❌ Отмена", data: "wizard:cancel" } as const;
+const CANCEL_TEXT = "Скасував. Нічого не створено.";
+const CANCEL_BUTTON = { text: "❌ Скасувати", data: "wizard:cancel" } as const;
 
 interface WizardDraft {
   title: string;
@@ -59,9 +59,10 @@ async function nextStepUpdate(conversation: WizardConversation): Promise<StepUpd
     }
     if (text === "/new") {
       const keyboard = new InlineKeyboard()
-        .text("▶️ Продолжить", "wizard:resume")
-        .text("🔄 Начать заново", "wizard:restart");
-      await update.reply("У тебя есть незаконченное событие. Продолжить или начать заново?", {
+        .text("▶️ Продовжити", "wizard:resume")
+        .row()
+        .text("🔄 Почати заново", "wizard:restart");
+      await update.reply("У тебе є незакінчена подія. Продовжити чи почати заново?", {
         reply_markup: keyboard,
       });
       const choice = await conversation.waitForCallbackQuery(["wizard:resume", "wizard:restart"]);
@@ -81,7 +82,7 @@ function withCancel(keyboard: InlineKeyboard): InlineKeyboard {
 }
 
 async function collectTitle(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string>> {
-  await ctx.reply("📝 Название события?", { reply_markup: withCancel(new InlineKeyboard()) });
+  await ctx.reply("📝 Назва події?", { reply_markup: withCancel(new InlineKeyboard()) });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -90,11 +91,11 @@ async function collectTitle(conversation: WizardConversation, ctx: Context): Pro
 
     const title = update.text.trim();
     if (!title) {
-      await ctx.reply("Название не может быть пустым. Напиши, как назвать событие.");
+      await ctx.reply("Назва не може бути порожньою. Напиши, як назвати подію.");
       continue;
     }
     if (title.length > 200) {
-      await ctx.reply("Слишком длинно. Уложись в 200 символов.");
+      await ctx.reply("Занадто довго. Вкладися у 200 символів.");
       continue;
     }
     return title;
@@ -102,8 +103,8 @@ async function collectTitle(conversation: WizardConversation, ctx: Context): Pro
 }
 
 async function collectDescription(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string | undefined>> {
-  const keyboard = withCancel(new InlineKeyboard().text("⏭ Пропустить", "wizard:skip"));
-  await ctx.reply("Добавить описание?", { reply_markup: keyboard });
+  const keyboard = withCancel(new InlineKeyboard().text("⏭ Пропустити", "wizard:skip"));
+  await ctx.reply("Додати опис?", { reply_markup: keyboard });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -115,7 +116,7 @@ async function collectDescription(conversation: WizardConversation, ctx: Context
 
     const description = update.text.trim();
     if (description.length > 2000) {
-      await ctx.reply("Слишком длинно. Уложись в 2000 символов.");
+      await ctx.reply("Занадто довго. Вкладися у 2000 символів.");
       continue;
     }
     return description || undefined;
@@ -128,10 +129,11 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
   async function renderCalendar(): Promise<void> {
     const today = DateTime.now();
     const quickRow = new InlineKeyboard()
-      .text("Сегодня", `dp:day:${today.toFormat("yyyy-MM-dd")}`)
+      .text("Сьогодні", `dp:day:${today.toFormat("yyyy-MM-dd")}`)
+      .row()
       .text("Завтра", `dp:day:${today.plus({ days: 1 }).toFormat("yyyy-MM-dd")}`);
     const keyboard = withCancel(quickRow.append(buildCalendarKeyboard(yearMonth)));
-    await ctx.reply("📅 На какую дату?", { reply_markup: keyboard });
+    await ctx.reply("📅 На яку дату?", { reply_markup: keyboard });
   }
 
   await renderCalendar();
@@ -154,7 +156,7 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
           await renderCalendar();
           continue;
         case "manual":
-          await ctx.reply("Напиши дату в формате дд.мм.гггг, например 14.08.2026");
+          await ctx.reply("Напиши дату у форматі дд.мм.рррр, наприклад 14.08.2026");
           continue;
         case "day":
           candidate = parsed.date;
@@ -163,7 +165,7 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
     } else {
       const manual = parseManualDate(update.text);
       if (!manual) {
-        await ctx.reply("Не разобрал дату. Нужен формат дд.мм.гггг, например 14.08.2026");
+        await ctx.reply("Не розібрав дату. Потрібен формат дд.мм.рррр, наприклад 14.08.2026");
         continue;
       }
       candidate = manual;
@@ -174,8 +176,11 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
       return candidate;
     }
 
-    const confirmKeyboard = new InlineKeyboard().text("Да", "date:past:yes").text("Выбрать другую", "date:past:retry");
-    await ctx.reply("⚠️ Это прошедшая дата. Всё равно создать?", { reply_markup: confirmKeyboard });
+    const confirmKeyboard = new InlineKeyboard()
+      .text("Так", "date:past:yes")
+      .row()
+      .text("Вибрати іншу", "date:past:retry");
+    await ctx.reply("⚠️ Це минула дата. Все одно створити?", { reply_markup: confirmKeyboard });
     const confirmUpdate = await nextStepUpdate(conversation);
     if (confirmUpdate.kind === "cancel") return CANCEL;
     if (confirmUpdate.kind === "callback" && confirmUpdate.data === "date:past:yes") {
@@ -186,8 +191,10 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
 }
 
 async function collectEventType(conversation: WizardConversation, ctx: Context): Promise<Cancellable<"allday" | "timed">> {
-  const keyboard = withCancel(new InlineKeyboard().text("🌞 Весь день", "type:allday").text("🕐 Указать время", "type:timed"));
-  await ctx.reply("Событие на весь день или на конкретное время?", { reply_markup: keyboard });
+  const keyboard = withCancel(
+    new InlineKeyboard().text("🌞 Весь день", "type:allday").row().text("🕐 Вказати час", "type:timed"),
+  );
+  await ctx.reply("Подія на весь день чи на конкретний час?", { reply_markup: keyboard });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -200,7 +207,7 @@ async function collectEventType(conversation: WizardConversation, ctx: Context):
 }
 
 async function collectStartTime(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string>> {
-  await ctx.reply("🕐 Во сколько начало? Формат ЧЧ:ММ, например 15:00", {
+  await ctx.reply("🕐 О котрій початок? Формат ГГ:ХВ, наприклад 15:00", {
     reply_markup: withCancel(new InlineKeyboard()),
   });
 
@@ -211,7 +218,7 @@ async function collectStartTime(conversation: WizardConversation, ctx: Context):
 
     const time = parseTime(update.text);
     if (!time) {
-      await ctx.reply("Не разобрал время. Нужен формат ЧЧ:ММ, например 09:30");
+      await ctx.reply("Не розібрав час. Потрібен формат ГГ:ХВ, наприклад 09:30");
       continue;
     }
     return time;
@@ -219,7 +226,7 @@ async function collectStartTime(conversation: WizardConversation, ctx: Context):
 }
 
 async function collectDuration(conversation: WizardConversation, ctx: Context): Promise<Cancellable<number>> {
-  await ctx.reply("⏱ Сколько длится?", { reply_markup: buildDurationKeyboard() });
+  await ctx.reply("⏱ Скільки триває?", { reply_markup: buildDurationKeyboard() });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -227,7 +234,7 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
 
     if (update.kind === "callback") {
       if (update.data === "dur:custom") {
-        await ctx.reply("Напиши длительность: 45м, 2ч, 1ч30м");
+        await ctx.reply("Напиши тривалість: 45хв, 2год, 1год30хв");
         continue;
       }
       if (update.data.startsWith("dur:")) {
@@ -240,8 +247,8 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
     if (!result.ok) {
       await ctx.reply(
         result.reason === "too_long"
-          ? "Максимум 24 часа. Для более долгих событий выбери «Весь день»."
-          : "Не разобрал. Примеры: 45м, 2ч, 1ч30м",
+          ? "Максимум 24 години. Для довших подій вибери «Весь день»."
+          : "Не розібрав. Приклади: 45хв, 2год, 1год30хв",
       );
       continue;
     }
@@ -250,7 +257,7 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
 }
 
 function accountLabel(account: CalendarAccount): string {
-  return account.provider === "GOOGLE" ? "🟦 Google" : "🍎 iCloud";
+  return account.provider === "GOOGLE" ? "Google" : "iCloud";
 }
 
 async function collectDefaultAccount(
@@ -259,11 +266,12 @@ async function collectDefaultAccount(
   accounts: CalendarAccount[],
 ): Promise<Cancellable<number>> {
   const keyboard = new InlineKeyboard();
-  for (const account of accounts) {
+  accounts.forEach((account, i) => {
+    if (i > 0) keyboard.row();
     keyboard.text(accountLabel(account), `acct:${account.id}`);
-  }
+  });
   await ctx.reply(
-    "У тебя подключены Google и iCloud. В какой создавать события по умолчанию?\nПотом можно поменять в /settings.",
+    "У тебе підключені Google та iCloud. У якому створювати події за замовчуванням?\nПотім можна змінити в /settings.",
     { reply_markup: keyboard },
   );
 
@@ -290,18 +298,22 @@ async function collectEditField(
   ctx: Context,
   opts: { allDay: boolean; multipleAccounts: boolean },
 ): Promise<Cancellable<EditField>> {
-  const keyboard = new InlineKeyboard().text("Название", "edit:title").text("Описание", "edit:description").row();
-  keyboard.text("Дата", "edit:date");
+  const keyboard = new InlineKeyboard()
+    .text("Назва", "edit:title")
+    .row()
+    .text("Опис", "edit:description")
+    .row()
+    .text("Дата", "edit:date")
+    .row();
   if (!opts.allDay) {
-    keyboard.text("Время", "edit:time").text("Длительность", "edit:duration");
+    keyboard.text("Час", "edit:time").row().text("Тривалість", "edit:duration").row();
   }
-  keyboard.row();
   if (opts.multipleAccounts) {
-    keyboard.text("Календарь", "edit:calendar").row();
+    keyboard.text("Календар", "edit:calendar").row();
   }
-  keyboard.text("⬅️ Назад к превью", "edit:back");
+  keyboard.text("⬅️ Назад до перегляду", "edit:back");
 
-  await ctx.reply("Что поменять?", { reply_markup: keyboard });
+  await ctx.reply("Що поміняти?", { reply_markup: keyboard });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -362,12 +374,16 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   });
 
   if (accounts.length === 0) {
-    await ctx.reply("Сначала подключи календарь: /settings");
+    await ctx.reply("Спочатку підключи календар:", {
+      reply_markup: new InlineKeyboard().text("Налаштування", "menu:settings"),
+    });
     return;
   }
   const timezone = user.timezone;
   if (!timezone) {
-    await ctx.reply("Сначала заверши настройку часового пояса: /start");
+    await ctx.reply("Спочатку заверши налаштування часового поясу:", {
+      reply_markup: new InlineKeyboard().text("Почати", "menu:start"),
+    });
     return;
   }
   const reminderMinutes = user.defaultReminder;
@@ -480,7 +496,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   const eventDraft = toEventDraft(draft, timezone, reminderMinutes);
 
   for (;;) {
-    await ctx.reply("⏳ Создаю событие…");
+    await ctx.reply("⏳ Створюю подію…");
 
     try {
       const created = await CalendarService.createEvent(account, eventDraft);
@@ -518,7 +534,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
       }
 
       await ctx.reply(
-        "❌ Не получилось создать событие: календарь не отвечает.\nЧерновик сохранён — можно попробовать ещё раз.",
+        "❌ Не вдалося створити подію: календар не відповідає.\nЧернетку збережено — можна спробувати ще раз.",
         { reply_markup: buildRetryKeyboard() },
       );
 

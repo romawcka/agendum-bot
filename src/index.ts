@@ -1,12 +1,13 @@
 import { webhookCallback } from "grammy";
 import { createApp } from "./app.js";
-import { bot } from "./bot/bot.js";
+import { bot, registerBotCommands } from "./bot/bot.js";
 import { initDatabase, prisma } from "./config/db.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 
 async function main(): Promise<void> {
   await initDatabase();
+  await registerBotCommands();
 
   const app = createApp();
 

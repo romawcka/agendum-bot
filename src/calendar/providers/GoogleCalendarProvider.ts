@@ -6,7 +6,7 @@ import { AppError } from "../../utils/errors.js";
 import { buildGoogleEventPayload } from "../eventBuilder.js";
 import type { CalendarProvider, CreatedEvent, DeletedEvent } from "../types.js";
 
-const CALENDAR_UNAVAILABLE_MESSAGE = "Календарь временно недоступен. Попробуй ещё раз через минуту";
+const CALENDAR_UNAVAILABLE_MESSAGE = "Календар тимчасово недоступний. Спробуй ще раз за хвилину";
 
 function calendarId(account: CalendarAccount): string {
   return account.externalId || "primary";
