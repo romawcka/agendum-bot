@@ -2,16 +2,20 @@ import { conversations, createConversation } from "@grammyjs/conversations";
 import { Bot } from "grammy";
 import { env } from "../config/env.js";
 import { startCommand } from "./commands/start.js";
+import { cancelCommand } from "./commands/cancel.js";
 import {
   eventDeleteConfirmCallback,
   eventDeleteRequestCallback,
   eventsCommand,
   eventsPageCallback,
 } from "./commands/events.js";
+import { fallbackTextHandler, helpCommand } from "./commands/help.js";
 import { anotherEventCallback, newCommand } from "./commands/new.js";
+import { settingsCommand } from "./commands/settings.js";
 import { wizardStorage } from "./conversationStorage.js";
 import { createEvent } from "./conversations/createEvent.js";
 import { onboarding } from "./conversations/onboarding.js";
+import { settingsMenu } from "./conversations/settingsMenu.js";
 import type { BotContext } from "./context.js";
 import { allowlistMiddleware } from "./middleware/allowlist.js";
 import { handleBotError } from "./middleware/errorHandler.js";
@@ -36,14 +40,20 @@ bot.use(
 );
 bot.use(createConversation(onboarding));
 bot.use(createConversation(createEvent));
+bot.use(createConversation(settingsMenu));
 
 bot.command("start", startCommand);
 bot.command("new", newCommand);
 bot.command("events", eventsCommand);
+bot.command("settings", settingsCommand);
+bot.command("cancel", cancelCommand);
+bot.command("help", helpCommand);
 bot.callbackQuery("wizard:another", anotherEventCallback);
 bot.callbackQuery(/^events:page:/, eventsPageCallback);
 bot.callbackQuery(/^events:del:/, eventDeleteRequestCallback);
 bot.callbackQuery(/^events:confirm:/, eventDeleteConfirmCallback);
+
+bot.on("message:text", fallbackTextHandler);
 
 bot.catch((err) => {
   void handleBotError(err);
