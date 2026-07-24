@@ -3,6 +3,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import helmet from "helmet";
 import { logger } from "./config/logger.js";
 import { healthRouter } from "./routes/health.js";
+import { oauthGoogleRouter } from "./routes/oauthGoogle.js";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -24,6 +25,7 @@ export function createApp(): Express {
   });
 
   app.use("/healthz", healthRouter);
+  app.use("/oauth/google", oauthGoogleRouter);
 
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     logger.error({ err, requestId: req.id }, "Необработанная ошибка Express");
