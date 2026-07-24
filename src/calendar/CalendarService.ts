@@ -2,7 +2,7 @@ import type { CalendarAccount } from "@prisma/client";
 import type { Provider } from "../types/enums.js";
 import { CalDavProvider } from "./providers/CalDavProvider.js";
 import { GoogleCalendarProvider } from "./providers/GoogleCalendarProvider.js";
-import type { CalendarProvider, CreatedEvent, EventDraft } from "./types.js";
+import type { CalendarProvider, CreatedEvent, DeletedEvent, EventDraft } from "./types.js";
 
 const providers: Record<Provider, CalendarProvider> = {
   GOOGLE: GoogleCalendarProvider,
@@ -25,7 +25,7 @@ export const CalendarService = {
   createEvent(account: CalendarAccount, draft: EventDraft): Promise<CreatedEvent> {
     return getProvider(account).createEvent(account, draft);
   },
-  deleteEvent(account: CalendarAccount, externalId: string): Promise<void> {
+  deleteEvent(account: CalendarAccount, externalId: string): Promise<DeletedEvent> {
     return getProvider(account).deleteEvent(account, externalId);
   },
   testConnection(account: CalendarAccount): Promise<boolean> {

@@ -15,8 +15,13 @@ export interface CreatedEvent {
   externalId: string;
 }
 
+export interface DeletedEvent {
+  /** True when the provider returned 404 — already gone, not an error (tech spec §5.3/§6). */
+  alreadyDeleted: boolean;
+}
+
 export interface CalendarProvider {
   createEvent(account: CalendarAccount, event: EventDraft): Promise<CreatedEvent>;
-  deleteEvent(account: CalendarAccount, externalId: string): Promise<void>;
+  deleteEvent(account: CalendarAccount, externalId: string): Promise<DeletedEvent>;
   testConnection(account: CalendarAccount): Promise<boolean>;
 }

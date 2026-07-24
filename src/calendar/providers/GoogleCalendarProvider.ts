@@ -4,7 +4,7 @@ import { logger } from "../../config/logger.js";
 import { getValidGoogleClient } from "../../services/TokenService.js";
 import { AppError } from "../../utils/errors.js";
 import { buildGoogleEventPayload } from "../eventBuilder.js";
-import type { CalendarProvider, CreatedEvent } from "../types.js";
+import type { CalendarProvider, CreatedEvent, DeletedEvent } from "../types.js";
 
 const CALENDAR_UNAVAILABLE_MESSAGE = "Календарь временно недоступен. Попробуй ещё раз через минуту";
 
@@ -38,14 +38,15 @@ export const GoogleCalendarProvider: CalendarProvider = {
     }
   },
 
-  async deleteEvent(account, externalId): Promise<void> {
+  async deleteEvent(account, externalId): Promise<DeletedEvent> {
     try {
       const auth = await getValidGoogleClient(account);
       const calendar = google.calendar({ version: "v3", auth });
       await calendar.events.delete({ calendarId: calendarId(account), eventId: externalId });
+      return { alreadyDeleted: false };
     } catch (err) {
       if (isNotFound(err)) {
-        return; // tech spec §5.3: already deleted manually — not an error
+        return { alreadyDeleted: true }; // tech spec §5.3: already deleted manually — not an error
       }
       if (err instanceof AppError) {
         throw err;

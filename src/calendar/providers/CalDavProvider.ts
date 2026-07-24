@@ -5,7 +5,7 @@ import { logger } from "../../config/logger.js";
 import { decrypt } from "../../utils/crypto.js";
 import { AppError } from "../../utils/errors.js";
 import { buildCalDavIcsEvent } from "../eventBuilder.js";
-import type { CalendarProvider, CreatedEvent } from "../types.js";
+import type { CalendarProvider, CreatedEvent, DeletedEvent } from "../types.js";
 
 export const ICLOUD_SERVER_URL = "https://caldav.icloud.com";
 
@@ -86,13 +86,13 @@ export const CalDavProvider: CalendarProvider = {
     }
   },
 
-  async deleteEvent(account, externalId): Promise<void> {
+  async deleteEvent(account, externalId): Promise<DeletedEvent> {
     try {
       const client = await getAuthenticatedClient(account);
       const response = await client.deleteCalendarObject({ calendarObject: { url: externalId } });
 
       if (response.status === 404) {
-        return; // tech spec §6: already deleted — not an error
+        return { alreadyDeleted: true }; // tech spec §6: already deleted — not an error
       }
       if (!response.ok) {
         if (response.status === 401) {
@@ -100,6 +100,7 @@ export const CalDavProvider: CalendarProvider = {
         }
         throw new Error(`CalDAV DELETE завершился со статусом ${response.status}`);
       }
+      return { alreadyDeleted: false };
     } catch (err) {
       if (err instanceof AppError) {
         throw err;

@@ -13,5 +13,7 @@ export function buildRetryKeyboard(): InlineKeyboard {
 }
 
 export function buildSuccessKeyboard(eventId: number): InlineKeyboard {
-  return new InlineKeyboard().text("🗑 Удалить", `event:delete:${eventId}`).text("➕ Ещё одно", "wizard:another");
+  // Reuses /events' own delete-confirmation flow (events:del:<id>:<page>) —
+  // same button, same confirmation screen, one implementation.
+  return new InlineKeyboard().text("🗑 Удалить", `events:del:${eventId}:1`).text("➕ Ещё одно", "wizard:another");
 }

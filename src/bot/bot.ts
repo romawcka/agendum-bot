@@ -2,6 +2,12 @@ import { conversations, createConversation } from "@grammyjs/conversations";
 import { Bot } from "grammy";
 import { env } from "../config/env.js";
 import { startCommand } from "./commands/start.js";
+import {
+  eventDeleteConfirmCallback,
+  eventDeleteRequestCallback,
+  eventsCommand,
+  eventsPageCallback,
+} from "./commands/events.js";
 import { anotherEventCallback, newCommand } from "./commands/new.js";
 import { wizardStorage } from "./conversationStorage.js";
 import { createEvent } from "./conversations/createEvent.js";
@@ -33,7 +39,11 @@ bot.use(createConversation(createEvent));
 
 bot.command("start", startCommand);
 bot.command("new", newCommand);
+bot.command("events", eventsCommand);
 bot.callbackQuery("wizard:another", anotherEventCallback);
+bot.callbackQuery(/^events:page:/, eventsPageCallback);
+bot.callbackQuery(/^events:del:/, eventDeleteRequestCallback);
+bot.callbackQuery(/^events:confirm:/, eventDeleteConfirmCallback);
 
 bot.catch((err) => {
   void handleBotError(err);
