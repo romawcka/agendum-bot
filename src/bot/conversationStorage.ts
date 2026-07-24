@@ -24,7 +24,13 @@ export const wizardStorage: VersionedStateStorage<string, ConversationData> = {
   async write(key, state) {
     const userId = Number(key);
     const expiresAt = new Date(Date.now() + env.WIZARD_TTL_MINUTES * 60_000);
-    const serialized = JSON.stringify(state);
+    // Defense in depth: a conversation.external() callback that accidentally
+    // returns a raw Prisma record (e.g. User.telegramId) would otherwise crash
+    // here with "Do not know how to serialize a BigInt" instead of failing
+    // gracefully. The real fix is not returning BigInts from external() at all.
+    const serialized = JSON.stringify(state, (_key, value) =>
+      typeof value === "bigint" ? value.toString() : value,
+    );
     await prisma.wizardSession.upsert({
       where: { userId },
       update: { state: serialized, expiresAt },

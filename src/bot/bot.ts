@@ -2,7 +2,9 @@ import { conversations, createConversation } from "@grammyjs/conversations";
 import { Bot } from "grammy";
 import { env } from "../config/env.js";
 import { startCommand } from "./commands/start.js";
+import { anotherEventCallback, newCommand } from "./commands/new.js";
 import { wizardStorage } from "./conversationStorage.js";
+import { createEvent } from "./conversations/createEvent.js";
 import { onboarding } from "./conversations/onboarding.js";
 import type { BotContext } from "./context.js";
 import { allowlistMiddleware } from "./middleware/allowlist.js";
@@ -27,8 +29,11 @@ bot.use(
   }),
 );
 bot.use(createConversation(onboarding));
+bot.use(createConversation(createEvent));
 
 bot.command("start", startCommand);
+bot.command("new", newCommand);
+bot.callbackQuery("wizard:another", anotherEventCallback);
 
 bot.catch((err) => {
   void handleBotError(err);
