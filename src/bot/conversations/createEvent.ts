@@ -388,8 +388,12 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   }
 
   // Only plain, JSON-serializable fields — external()'s return value is persisted
-  // into WizardSession, and the full Prisma User has a BigInt telegramId field.
-  const { user, accounts } = await conversation.external(async () => {
+  // into WizardSession as JSON. The full Prisma User has a BigInt telegramId
+  // field (would crash JSON.stringify), and CalendarAccount's Date fields
+  // (expiresAt, createdAt) silently degrade to strings on JSON.parse — revived
+  // right below, since on serverless nearly every wizard step is a *replay*
+  // from that stored JSON, not a fresh Prisma query.
+  const { user, accounts: rawAccounts } = await conversation.external(async () => {
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { telegramId: BigInt(telegramId) } });
     const calendarAccounts = await prisma.calendarAccount.findMany({
       where: { userId: dbUser.id, isActive: true },
@@ -404,6 +408,11 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
       accounts: calendarAccounts,
     };
   });
+  const accounts: CalendarAccount[] = rawAccounts.map((a) => ({
+    ...a,
+    expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
+    createdAt: new Date(a.createdAt),
+  }));
 
   if (accounts.length === 0) {
     await ctx.reply("Спочатку підключи календар:", {
