@@ -10,7 +10,11 @@ import { collectTimezone, timezoneKeyboard } from "./timezone.js";
 
 type SettingsConversation = Conversation<BotContext, Context>;
 
-type MenuUpdate = { kind: "cancel" } | { kind: "text"; text: string } | { kind: "callback"; data: string };
+type MenuUpdate =
+  | { kind: "cancel" }
+  | { kind: "new" }
+  | { kind: "text"; text: string }
+  | { kind: "callback"; data: string };
 
 async function nextUpdate(conversation: SettingsConversation): Promise<MenuUpdate> {
   const update = await conversation.waitFor(["message:text", "callback_query:data"]);
@@ -22,6 +26,12 @@ async function nextUpdate(conversation: SettingsConversation): Promise<MenuUpdat
   const text = update.message?.text?.trim() ?? "";
   if (text === "/cancel") {
     return { kind: "cancel" };
+  }
+  // Without this, waitFor() silently swallows /new (settings has no draft to
+  // lose, unlike the wizard's own /new-mid-wizard prompt) and just re-renders
+  // the settings screen, since bot.command("new") never gets a turn.
+  if (text === "/new") {
+    return { kind: "new" };
   }
   return { kind: "text", text };
 }
@@ -205,6 +215,12 @@ export async function settingsMenu(conversation: SettingsConversation, ctx: Cont
     const update = await nextUpdate(conversation);
     if (update.kind === "cancel") {
       await ctx.reply("Скасував поточну дію.");
+      return;
+    }
+    if (update.kind === "new") {
+      await ctx.reply("Вийшов із налаштувань.", {
+        reply_markup: new InlineKeyboard().text("📝 Створити подію", "menu:new"),
+      });
       return;
     }
     if (update.kind !== "callback") continue;
