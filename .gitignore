@@ -1,9 +1,8 @@
 node_modules/
 dist/
-data/*
-!data/.gitkeep
-backups/*
-!backups/.gitkeep
+.vercel
+.turso-dev-marker.json
+prisma/*.db
 .env
 .env.local
 *.log

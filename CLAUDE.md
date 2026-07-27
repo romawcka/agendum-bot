@@ -23,7 +23,9 @@ Telegram-бот: пошагово превращает заметку в соб�
 
 ## Стек — не заменять
 
-Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` · SQLite + Prisma · Luxon · googleapis · tsdav + ical-generator · Zod · Pino · Vitest
+Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` · SQLite-совместимая БД (Turso/libSQL, `@prisma/adapter-libsql`) + Prisma · Luxon · googleapis · tsdav + ical-generator · Zod · Pino · Vitest
+
+БД сетевая (Turso), не локальный файл — решение принято осознанно, чтобы приложение не было завязано на постоянный диск конкретного хоста (совместимость с serverless-деплоем, напр. Vercel). Prisma-схема при этом осталась `provider = "sqlite"` — сменился только driver adapter.
 
 ## Инварианты
 
@@ -55,9 +57,11 @@ Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` 
 ## Команды
 
 ```
-npm run dev      # polling, локально
+npm run dev            # polling, локально (predev сам обновляет дев-копию Turso раз в неделю)
 npm run build
-npm start        # webhook, прод
+npm start               # webhook, сборка локально (прод — Vercel, см. "npm run setup:webhook")
+npm run setup:webhook   # разовая регистрация webhook + меню команд после деплоя на Vercel
 npm test
-npx prisma migrate dev
+npx prisma migrate deploy   # накатить существующие миграции на Turso; `migrate dev` не работает
+                             # через @prisma/adapter-libsql (см. README «Новая миграция»)
 ```

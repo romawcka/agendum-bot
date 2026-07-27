@@ -11,8 +11,8 @@
 | Runtime | Node.js 20 LTS | ESM, стабильность |
 | HTTP-сервер | Express 4 | Требование заказчика; нужен для OAuth-callback и Telegram webhook |
 | Telegram | grammY | Современнее Telegraf, есть плагины `conversations`, `menu`, хорошая типизация |
-| БД | SQLite (`better-sqlite3`, WAL) | Нагрузка итерации 1 — десятки записей в день; ноль администрирования |
-| ORM | Prisma | Миграции, типобезопасность, безболезненный переезд на Postgres позже |
+| БД | SQLite-совместимая, [Turso](https://turso.tech)/libSQL (`@prisma/adapter-libsql`) | Нагрузка итерации 1 — десятки записей в день; ноль администрирования, сетевая — не завязана на диск конкретного хоста (совместимо с serverless) |
+| ORM | Prisma | Миграции, типобезопасность |
 | Даты/TZ | Luxon | Корректная работа с IANA-таймзонами и DST |
 | Google Calendar | `googleapis` | Официальный SDK |
 | iCloud (CalDAV) | `tsdav` + `ical-generator` | Рабочая связка для Apple Calendar |
@@ -42,7 +42,7 @@ Telegram ──webhook──▶ Express ──▶ grammY bot
                          │               │
                     Google API      iCloud CalDAV
 
-                 SQLite (Prisma)
+                 Turso/libSQL (Prisma)
 ```
 
 **Ключевой принцип:** `CalendarService` — фасад с единым интерфейсом. Оба провайдера реализуют один контракт, вызывающий код не знает, какой календарь используется.
@@ -124,16 +124,15 @@ tests/
 | Нет `@db.Text` | Обычный `String` — SQLite не ограничивает длину |
 | `Json`-тип ненадёжен | Состояние визарда храним как `String`, сериализуем `JSON.stringify` / `JSON.parse` в сервисном слое |
 | Нет `@@unique` на выражениях | Обычных составных unique достаточно |
-| Один пишущий процесс | Включить WAL: `PRAGMA journal_mode = WAL;` и `PRAGMA busy_timeout = 5000;` при инициализации |
 
 `BigInt` для `telegramId` SQLite через Prisma поддерживает — ID Telegram укладываются в signed 64-bit.
 
-Datasource:
+БД — [Turso](https://turso.tech) (managed libSQL, SQLite-совместимый), не локальный файл: driver adapter `@prisma/adapter-libsql` вместо `@prisma/adapter-better-sqlite3`. Конкурентность/WAL — забота сервера Turso, приложение больше не выставляет `PRAGMA` само. Датасорс в Prisma при этом не меняется:
 
 ```prisma
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")   // file:../data/app.db
+  url      = env("TURSO_DATABASE_URL")
 }
 ```
 
@@ -321,8 +320,8 @@ TELEGRAM_BOT_TOKEN=
 TELEGRAM_WEBHOOK_SECRET=          # secret_token для валидации входящих
 BOT_MODE=webhook                  # webhook | polling
 
-DATABASE_URL=file:../data/app.db
-BACKUP_DIR=./backups
+TURSO_DATABASE_URL=libsql://agendum-bot-<org>.turso.io
+TURSO_AUTH_TOKEN=
 
 ENCRYPTION_KEY=                   # 32 байта в hex (64 символа)
 
@@ -370,12 +369,8 @@ LOG_LEVEL=info
 
 ## 14. Деплой
 
-- Docker-образ, multi-stage build. В образе должен собираться `better-sqlite3` под целевую архитектуру (нативный модуль) — ставить в builder-стадии и копировать `node_modules` целиком.
-- `prisma migrate deploy` при старте.
-- Хостинг: Railway / Fly.io / VPS с Caddy для TLS.
-- **Файл БД лежит на персистентном volume**, смонтированном в `/data`. На Railway и Fly.io файловая система контейнера эфемерна: без volume база пропадёт при первом же передеплое. `DATABASE_URL=file:/data/app.db` в проде.
-- **Бэкап:** cron-задача раз в сутки выполняет `VACUUM INTO '/data/backups/app-YYYY-MM-DD.db'`, старше 30 дней удаляется. Это корректный способ снять копию SQLite на живой базе — простое копирование файла при активном WAL может дать битый снимок.
-- WAL и `busy_timeout` включаются при инициализации Prisma-клиента.
-- Один инстанс приложения. Горизонтальное масштабирование потребует переезда на Postgres.
-- Webhook ставится при старте приложения (`setWebhook` с secret_token), в dev — `BOT_MODE=polling`.
-- Graceful shutdown: дождаться завершения обработки текущих апдейтов.
+БД (Turso/libSQL) сетевая, не локальный файл — приложение не завязано на постоянный диск конкретного хоста, что и делает возможным serverless-деплой.
+
+**Vercel (serverless).** `BOT_MODE=webhook` обязателен (нет процесса, который мог бы поллить). `api/index.ts` экспортирует тот же `createApp()`, что и обычный сервер — Vercel оборачивает Express-приложение как обработчик запроса напрямую, `vercel.json` разворачивает все пути на этот один хендлер. `setWebhook`/`setMyCommands` не вызываются на cold start (незачем — не идемпотентно полезно на каждый холодный старт serverless) — регистрируются один раз вручную скриптом `npm run setup:webhook` после (пере)деплоя. `prisma migrate deploy` — вручную, с прод-переменными, перед первым запуском и при каждой новой миграции.
+
+**Бэкап** — забота Turso (managed-сервис), а не cron-задачи на хосте, как было при локальном файле.

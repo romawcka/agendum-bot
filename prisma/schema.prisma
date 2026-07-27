@@ -4,7 +4,10 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // Плейсхолдер: схема требует URL с протоколом file: для provider = "sqlite",
+  // но реальное подключение идёт через driver adapter (prisma.config.ts,
+  // src/config/db.ts) на TURSO_DATABASE_URL — это значение не используется.
+  url      = "file:./unused.db"
 }
 
 model User {

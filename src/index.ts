@@ -1,26 +1,16 @@
-import { webhookCallback } from "grammy";
 import { createApp } from "./app.js";
-import { bot, registerBotCommands } from "./bot/bot.js";
-import { initDatabase, prisma } from "./config/db.js";
+import { bot, registerBotCommands, registerWebhook } from "./bot/bot.js";
+import { prisma } from "./config/db.js";
 import { env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 
 async function main(): Promise<void> {
-  await initDatabase();
   await registerBotCommands();
 
   const app = createApp();
 
   if (env.BOT_MODE === "webhook") {
-    const webhookPath = `/telegram/webhook/${env.TELEGRAM_WEBHOOK_SECRET}`;
-    app.post(
-      webhookPath,
-      webhookCallback(bot, "express", { secretToken: env.TELEGRAM_WEBHOOK_SECRET }),
-    );
-    await bot.api.setWebhook(`${env.BASE_URL}${webhookPath}`, {
-      secret_token: env.TELEGRAM_WEBHOOK_SECRET,
-    });
-    logger.info("Вебхук Telegram установлен");
+    await registerWebhook();
   }
 
   const server = app.listen(env.PORT, () => {

@@ -1,6 +1,9 @@
 import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
+import { webhookCallback } from 'grammy';
 import { randomUUID } from 'node:crypto';
+import { bot, webhookPath } from './bot/bot.js';
+import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { healthRouter } from './routes/health.js';
 import { oauthGoogleRouter } from './routes/oauthGoogle.js';
@@ -14,6 +17,12 @@ declare global {
   }
 }
 
+/**
+ * Self-contained: includes the Telegram webhook route (when BOT_MODE=webhook)
+ * so this single Express app works both as a traditional app.listen() server
+ * (index.ts) and as a Vercel serverless entrypoint (api/index.ts), which never
+ * runs index.ts's bootstrap at all.
+ */
 export function createApp(): Express {
   const app = express();
 
@@ -23,6 +32,10 @@ export function createApp(): Express {
     req.id = randomUUID();
     next();
   });
+
+  if (env.BOT_MODE === 'webhook') {
+    app.post(webhookPath(), webhookCallback(bot, 'express', { secretToken: env.TELEGRAM_WEBHOOK_SECRET }));
+  }
 
   app.use('/healthz', healthRouter);
   app.use('/oauth/google', oauthGoogleRouter);

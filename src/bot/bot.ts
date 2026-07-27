@@ -1,6 +1,7 @@
 import { conversations, createConversation } from "@grammyjs/conversations";
 import { Bot } from "grammy";
 import { env } from "../config/env.js";
+import { logger } from "../config/logger.js";
 import { startCommand } from "./commands/start.js";
 import { cancelCommand } from "./commands/cancel.js";
 import {
@@ -75,4 +76,16 @@ const BOT_COMMANDS = [
 
 export async function registerBotCommands(): Promise<void> {
   await bot.api.setMyCommands(BOT_COMMANDS);
+}
+
+/** Shared by the Express webhook route (app.ts) and setWebhook() (registerWebhook below) — keeps the path in sync between the two. */
+export function webhookPath(): string {
+  return `/telegram/webhook/${env.TELEGRAM_WEBHOOK_SECRET}`;
+}
+
+export async function registerWebhook(): Promise<void> {
+  await bot.api.setWebhook(`${env.BASE_URL}${webhookPath()}`, {
+    secret_token: env.TELEGRAM_WEBHOOK_SECRET,
+  });
+  logger.info("Вебхук Telegram установлен");
 }

@@ -16,8 +16,8 @@ const envSchema = z
     TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
     BOT_MODE: z.enum(["webhook", "polling"]),
 
-    DATABASE_URL: z.string().min(1, "DATABASE_URL обязателен"),
-    BACKUP_DIR: z.string().default("./backups"),
+    TURSO_DATABASE_URL: z.string().min(1, "TURSO_DATABASE_URL обязателен"),
+    TURSO_AUTH_TOKEN: z.string().min(1, "TURSO_AUTH_TOKEN обязателен"),
 
     ENCRYPTION_KEY: z
       .string()
