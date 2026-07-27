@@ -1,7 +1,12 @@
 import type { calendar_v3 } from "googleapis";
-import ical, { ICalAlarmType } from "ical-generator";
+import icalImport, { ICalAlarmType, type ICalCalendar, type ICalCalendarData } from "ical-generator";
 import { DateTime } from "luxon";
 import type { EventDraft } from "./types.js";
+
+// Workaround: same NodeNext dual-package-hazard as helmet (see src/app.ts) —
+// on some npm installs (observed on Vercel's Linux build, not locally) TS
+// resolves this default export as a non-callable namespace type.
+const ical = icalImport as unknown as (data?: ICalCalendarData) => ICalCalendar;
 
 export interface EventTimeRange {
   allDay: boolean;
