@@ -2,13 +2,13 @@ import { DateTime } from "luxon";
 
 const MAX_DURATION_MINUTES = 24 * 60;
 
-/** Strictly дд.мм.рррр. Returns YYYY-MM-DD or undefined if invalid. */
+/** Strictly ДД/ММ/РРРР. Returns YYYY-MM-DD or undefined if invalid. */
 export function parseManualDate(text: string): string | undefined {
-  const match = text.trim().match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  const match = text.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (!match) {
     return undefined;
   }
-  const parsed = DateTime.fromFormat(match[0], "dd.MM.yyyy");
+  const parsed = DateTime.fromFormat(match[0], "dd/MM/yyyy");
   return parsed.isValid ? parsed.toFormat("yyyy-MM-dd") : undefined;
 }
 

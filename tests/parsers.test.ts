@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { parseDuration, parseManualDate, parseTime } from "../src/utils/parsers.js";
 
 describe("parseManualDate", () => {
-  it("accepts дд.мм.рррр", () => {
-    expect(parseManualDate("14.08.2026")).toBe("2026-08-14");
+  it("accepts ДД/ММ/РРРР", () => {
+    expect(parseManualDate("14/08/2026")).toBe("2026-08-14");
   });
 
   it("accepts a single-digit-looking but zero-padded date", () => {
-    expect(parseManualDate("01.01.2026")).toBe("2026-01-01");
+    expect(parseManualDate("01/01/2026")).toBe("2026-01-01");
   });
 
-  it.each(["14/08/2026", "2026-08-14", "14.8.2026", "14.08.26", "not a date", ""])(
+  it.each(["14.08.2026", "2026-08-14", "14/8/2026", "14/08/26", "not a date", ""])(
     "rejects %s",
     (input) => {
       expect(parseManualDate(input)).toBeUndefined();
@@ -18,15 +18,15 @@ describe("parseManualDate", () => {
   );
 
   it("rejects a calendar-invalid date (31 April)", () => {
-    expect(parseManualDate("31.04.2026")).toBeUndefined();
+    expect(parseManualDate("31/04/2026")).toBeUndefined();
   });
 
   it("rejects 29 February on a non-leap year", () => {
-    expect(parseManualDate("29.02.2026")).toBeUndefined();
+    expect(parseManualDate("29/02/2026")).toBeUndefined();
   });
 
   it("accepts 29 February on a leap year", () => {
-    expect(parseManualDate("29.02.2028")).toBe("2028-02-29");
+    expect(parseManualDate("29/02/2028")).toBe("2028-02-29");
   });
 });
 

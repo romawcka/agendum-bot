@@ -123,20 +123,32 @@ async function collectDescription(conversation: WizardConversation, ctx: Context
   }
 }
 
+const MANUAL_DATE_HINT = "Напиши дату у форматі ДД/ММ/РРРР, наприклад 14/08/2026";
+const MANUAL_DATE_INVALID = "Не розібрав дату. Потрібен формат ДД/ММ/РРРР, наприклад 14/08/2026";
+
 async function collectDate(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string>> {
   let yearMonth = DateTime.now().toFormat("yyyy-MM");
+  let mode: "menu" | "calendar" = "menu";
 
-  async function renderCalendar(): Promise<void> {
-    const today = DateTime.now();
-    const quickRow = new InlineKeyboard()
-      .text("Сьогодні", `dp:day:${today.toFormat("yyyy-MM-dd")}`)
-      .row()
-      .text("Завтра", `dp:day:${today.plus({ days: 1 }).toFormat("yyyy-MM-dd")}`);
-    const keyboard = withCancel(quickRow.append(buildCalendarKeyboard(yearMonth)));
+  async function renderMenu(): Promise<void> {
+    const keyboard = withCancel(
+      new InlineKeyboard()
+        .text("Сьогодні", "date:today")
+        .row()
+        .text("Завтра", "date:tomorrow")
+        .row()
+        .text("Своя дата", "date:custom")
+        .row()
+        .text("📅 Календар", "date:calendar"),
+    );
     await ctx.reply("📅 На яку дату?", { reply_markup: keyboard });
   }
 
-  await renderCalendar();
+  async function renderCalendar(): Promise<void> {
+    await ctx.reply("📅 На яку дату?", { reply_markup: withCancel(buildCalendarKeyboard(yearMonth)) });
+  }
+
+  await renderMenu();
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -144,7 +156,30 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
 
     let candidate: string | null = null;
 
-    if (update.kind === "callback") {
+    if (update.kind === "text") {
+      // Free-text date entry works regardless of menu/calendar mode.
+      const manual = parseManualDate(update.text);
+      if (!manual) {
+        await ctx.reply(MANUAL_DATE_INVALID);
+        continue;
+      }
+      candidate = manual;
+    } else if (mode === "menu") {
+      if (update.data === "date:today") {
+        candidate = DateTime.now().toFormat("yyyy-MM-dd");
+      } else if (update.data === "date:tomorrow") {
+        candidate = DateTime.now().plus({ days: 1 }).toFormat("yyyy-MM-dd");
+      } else if (update.data === "date:custom") {
+        await ctx.reply(MANUAL_DATE_HINT);
+        continue;
+      } else if (update.data === "date:calendar") {
+        mode = "calendar";
+        await renderCalendar();
+        continue;
+      } else {
+        continue;
+      }
+    } else {
       const parsed = parseCalendarCallback(update.data);
       switch (parsed?.type) {
         case undefined:
@@ -156,19 +191,12 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
           await renderCalendar();
           continue;
         case "manual":
-          await ctx.reply("Напиши дату у форматі дд.мм.рррр, наприклад 14.08.2026");
+          await ctx.reply(MANUAL_DATE_HINT);
           continue;
         case "day":
           candidate = parsed.date;
           break;
       }
-    } else {
-      const manual = parseManualDate(update.text);
-      if (!manual) {
-        await ctx.reply("Не розібрав дату. Потрібен формат дд.мм.рррр, наприклад 14.08.2026");
-        continue;
-      }
-      candidate = manual;
     }
 
     const isPast = DateTime.fromFormat(candidate, "yyyy-MM-dd") < DateTime.now().startOf("day");
@@ -186,7 +214,11 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
     if (confirmUpdate.kind === "callback" && confirmUpdate.data === "date:past:yes") {
       return candidate;
     }
-    await renderCalendar();
+    if (mode === "calendar") {
+      await renderCalendar();
+    } else {
+      await renderMenu();
+    }
   }
 }
 
