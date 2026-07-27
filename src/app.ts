@@ -1,5 +1,7 @@
-import express, { type Express, type NextFunction, type Request, type Response } from 'express';
-import helmet from 'helmet';
+import express, { type Express, type NextFunction, type Request, type RequestHandler, type Response } from 'express';
+import helmetImport from 'helmet';
+
+const helmet = helmetImport as unknown as (options?: Record<string, unknown>) => RequestHandler;
 import { webhookCallback } from 'grammy';
 import { randomUUID } from 'node:crypto';
 import { bot, webhookPath } from './bot/bot.js';
