@@ -39,9 +39,9 @@ export function createApp(): Express {
     app.post(webhookPath(), webhookCallback(bot, 'express', { secretToken: env.TELEGRAM_WEBHOOK_SECRET }));
   }
 
-  app.get('/', (_req: Request, res: Response) => {
-    res.redirect('/healthz');
-  });
+  // app.get('/', (_req: Request, res: Response) => {
+  //   res.redirect('/healthz');
+  // });
 
   app.use('/healthz', healthRouter);
   app.use('/oauth/google', oauthGoogleRouter);
