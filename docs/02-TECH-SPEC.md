@@ -347,3 +347,14 @@ The DB (Turso/libSQL) is networked, not a local file — the app isn't tied to a
 **Vercel (serverless).** `BOT_MODE=webhook` is required (there's no process that could poll). `api/index.ts` exports the same `createApp()` as the regular server — Vercel wraps the Express app directly as a request handler, `vercel.json` routes every path to this single handler. `setWebhook`/`setMyCommands` are not called on cold start (no point — not usefully idempotent on every serverless cold start) — they're registered once, manually, via the `npm run setup:webhook` script after each (re)deploy. `prisma migrate deploy` — manual, with prod env vars, before the first run and for every new migration.
 
 **Backup** — Turso's (managed service) responsibility, not a cron job on the host as it was with the local file.
+
+## 14. `/events` list cache and reconciliation with Google
+
+`src/services/eventsCache.ts` — an in-memory `Map<userId, { events, fetchedAt }>`, TTL 60s. Same acceptability rationale as the rate-limit middleware (`src/bot/middleware/rateLimit.ts`, enforcing PRD §10's 30-actions-per-minute limit): lives within one warm serverless instance; a cold start or a second concurrent instance just means one extra round trip, never stale data served past the TTL.
+
+Before this cache existed, `/events` trusted the DB's `status` column exclusively — an event deleted directly in Google Calendar (not through the bot) stayed `ACTIVE` in the DB forever, since the only place a 404 from Google was ever observed was the bot's own single-event delete flow. The cache refresh is also the fix for that gap:
+
+- On a cache miss, **only when the user opens `/events`** (`eventsCommand` — the single entry point both `/events` and the "Мої події" menu button funnel through), the app re-reads the DB *and* calls `GoogleCalendarProvider.listEventIds` for the same 30-day window, diffs the two ID sets, and marks any DB row missing from Google's list `DELETED` via one `updateMany`. Only the reconciled list is cached.
+- Internal navigation — pagination, delete confirmation screens, delete-all — never calls Google itself; it only reads whatever is in the cache (or, if the cache is empty, a plain DB read with no reconciliation).
+- Any mutation triggered by the bot itself (single delete, delete-all, a newly created event) invalidates the cache immediately, rather than waiting for the TTL — so the user always sees the result of their own action right away. Only changes made directly in Google Calendar lag behind, by up to the 60s TTL, until the next `/events` open.
+- If the call to Google fails (network, quota, expired token), reconciliation fails open: the DB list is used as-is and nothing is marked deleted — a transient outage must never cause data loss.

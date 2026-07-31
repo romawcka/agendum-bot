@@ -66,4 +66,30 @@ export const GoogleCalendarProvider = {
       return false;
     }
   },
+
+  /** IDs of every event Google has in [timeMin, timeMax) — used to reconcile against our DB. */
+  async listEventIds(account: CalendarAccount, timeMin: Date, timeMax: Date): Promise<Set<string>> {
+    const auth = await getValidGoogleClient(account);
+    const calendar = google.calendar({ version: "v3", auth });
+    const ids = new Set<string>();
+    let pageToken: string | undefined;
+
+    do {
+      const { data } = await calendar.events.list({
+        calendarId: calendarId(account),
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        singleEvents: true,
+        maxResults: 250,
+        fields: "nextPageToken,items(id)",
+        pageToken,
+      });
+      for (const item of data.items ?? []) {
+        if (item.id) ids.add(item.id);
+      }
+      pageToken = data.nextPageToken ?? undefined;
+    } while (pageToken);
+
+    return ids;
+  },
 };

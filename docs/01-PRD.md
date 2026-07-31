@@ -85,6 +85,8 @@ The `/events` command (and a menu item):
 - Deletion requires confirmation: "Delete 'Doctor's appointment' on Aug 14 at 15:00?" → "Yes, delete" / "Cancel".
 - The event is deleted from the calendar via the API and marked deleted in the DB.
 - If the event was already deleted manually by the user in the calendar — the bot reports this and removes it from the list without an error.
+- A "Delete all" button shows up whenever the full list has more than one event (not just the current page); it deletes every listed event from the calendar and requires an explicit confirmation, since it's irreversible. Partial failures are reported ("Deleted X of N").
+- Opening `/events` reconciles the DB against Google Calendar (at most once a minute) so events deleted directly in the calendar — not through the bot — disappear from the list too, closing a gap where such events used to stay listed forever. Pagination and deletion themselves never trigger this check, only opening the screen does.
 
 ### 5.4 Settings
 

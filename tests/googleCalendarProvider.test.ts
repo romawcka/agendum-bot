@@ -1,16 +1,17 @@
 import type { CalendarAccount } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { insertMock, deleteMock, calendarListGetMock } = vi.hoisted(() => ({
+const { insertMock, deleteMock, listMock, calendarListGetMock } = vi.hoisted(() => ({
   insertMock: vi.fn(),
   deleteMock: vi.fn(),
+  listMock: vi.fn(),
   calendarListGetMock: vi.fn(),
 }));
 
 vi.mock("googleapis", () => ({
   google: {
     calendar: () => ({
-      events: { insert: insertMock, delete: deleteMock },
+      events: { insert: insertMock, delete: deleteMock, list: listMock },
       calendarList: { get: calendarListGetMock },
     }),
   },
@@ -51,6 +52,7 @@ const DRAFT = {
 beforeEach(() => {
   insertMock.mockReset();
   deleteMock.mockReset();
+  listMock.mockReset();
   calendarListGetMock.mockReset();
 });
 
@@ -100,6 +102,31 @@ describe("GoogleCalendarProvider.deleteEvent", () => {
     deleteMock.mockRejectedValue(Object.assign(new Error("server error"), { code: 500 }));
 
     await expect(GoogleCalendarProvider.deleteEvent(fakeAccount(), "x")).rejects.toBeInstanceOf(AppError);
+  });
+});
+
+describe("GoogleCalendarProvider.listEventIds", () => {
+  it("returns the ids of every event in the window", async () => {
+    listMock.mockResolvedValue({ data: { items: [{ id: "a" }, { id: "b" }] } });
+
+    const result = await GoogleCalendarProvider.listEventIds(fakeAccount(), new Date("2026-08-01"), new Date("2026-08-31"));
+
+    expect(result).toEqual(new Set(["a", "b"]));
+    expect(listMock).toHaveBeenCalledWith(
+      expect.objectContaining({ calendarId: "primary", singleEvents: true }),
+    );
+  });
+
+  it("follows nextPageToken across multiple pages", async () => {
+    listMock
+      .mockResolvedValueOnce({ data: { items: [{ id: "a" }], nextPageToken: "p2" } })
+      .mockResolvedValueOnce({ data: { items: [{ id: "b" }] } });
+
+    const result = await GoogleCalendarProvider.listEventIds(fakeAccount(), new Date(), new Date());
+
+    expect(result).toEqual(new Set(["a", "b"]));
+    expect(listMock).toHaveBeenCalledTimes(2);
+    expect(listMock).toHaveBeenNthCalledWith(2, expect.objectContaining({ pageToken: "p2" }));
   });
 });
 

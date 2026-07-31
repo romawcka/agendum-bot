@@ -8,6 +8,8 @@ import {
   eventDeleteConfirmCallback,
   eventDeleteRequestCallback,
   eventsCommand,
+  eventsDeleteAllConfirmCallback,
+  eventsDeleteAllRequestCallback,
   eventsPageCallback,
 } from "./commands/events.js";
 import { fallbackTextHandler, helpCommand } from "./commands/help.js";
@@ -54,6 +56,8 @@ bot.callbackQuery("wizard:another", anotherEventCallback);
 bot.callbackQuery(/^events:page:/, eventsPageCallback);
 bot.callbackQuery(/^events:del:/, eventDeleteRequestCallback);
 bot.callbackQuery(/^events:confirm:/, eventDeleteConfirmCallback);
+bot.callbackQuery(/^events:delall:request:/, eventsDeleteAllRequestCallback);
+bot.callbackQuery(/^events:delall:confirm:/, eventsDeleteAllConfirmCallback);
 bot.callbackQuery("menu:new", menuNewCallback);
 bot.callbackQuery("menu:events", menuEventsCallback);
 bot.callbackQuery("menu:settings", menuSettingsCallback);

@@ -6,6 +6,7 @@ import { DateTime } from "luxon";
 import { GoogleCalendarProvider } from "../../calendar/providers/GoogleCalendarProvider.js";
 import type { EventDraft } from "../../calendar/types.js";
 import { prisma } from "../../config/db.js";
+import { invalidate } from "../../services/eventsCache.js";
 import { formatPreview, formatSuccessCard, type PreviewDraft } from "../../utils/format.js";
 import { AppError } from "../../utils/errors.js";
 import { parseDuration, parseManualDate, parseTime } from "../../utils/parsers.js";
@@ -497,6 +498,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
           },
         }),
       );
+      invalidate(user.id);
 
       await ctx.reply(formatSuccessCard(toPreviewDraft(draft, reminderMinutes), timezone, account.label), {
         reply_markup: buildSuccessKeyboard(savedEvent.id),
