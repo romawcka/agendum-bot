@@ -1,10 +1,10 @@
 # Agendum Bot
 
-Telegram-бот, который пошагово превращает заметку в событие Google Calendar и/или Apple iCloud — без открытия календарного приложения. Продуктовые требования и точные тексты сообщений: [`docs/01-PRD.md`](docs/01-PRD.md), [`docs/02-TECH-SPEC.md`](docs/02-TECH-SPEC.md), [`docs/03-BOT-UX.md`](docs/03-BOT-UX.md).
+Telegram-бот, который пошагово превращает заметку в событие Google Calendar — без открытия календарного приложения. Продуктовые требования и точные тексты сообщений: [`docs/01-PRD.md`](docs/01-PRD.md), [`docs/02-TECH-SPEC.md`](docs/02-TECH-SPEC.md), [`docs/03-BOT-UX.md`](docs/03-BOT-UX.md).
 
 ## Стек
 
-Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` · SQLite (Turso/libSQL) + Prisma (`@prisma/adapter-libsql`) · Luxon · googleapis · tsdav + ical-generator · Zod · Pino · Vitest
+Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` · SQLite (Turso/libSQL) + Prisma (`@prisma/adapter-libsql`) · Luxon · googleapis · Zod · Pino · Vitest
 
 ## Локальный запуск
 
@@ -82,7 +82,7 @@ npm run build && npm start   # прод-сборка, тот же процесс
 npm test
 ```
 
-Юнит- и интеграционные тесты (провайдеры календарей мокаются на уровне модуля — реальных сетевых вызовов нет).
+Юнит- и интеграционные тесты (провайдер календаря мокается на уровне модуля — реальных сетевых вызовов нет).
 
 ## Получение credentials
 
@@ -103,14 +103,6 @@ npm test
 6. Скопируй **Client ID** и **Client Secret** в `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 
 Проверить OAuth-flow локально без деплоя можно через туннель (например `ngrok http 3000`) — тогда `BASE_URL` и redirect URI в Google Console должны указывать на публичный URL туннеля. При деплое (см. «Деплой» ниже) туннель не нужен — `BASE_URL` указывает на настоящий адрес.
-
-### Apple iCloud (app-specific password)
-
-Каждый пользователь бота делает это сам при подключении iCloud через `/start` или `/settings` — секретов проекта здесь нет:
-
-1. [appleid.apple.com](https://appleid.apple.com) → «Вход и безопасность» → «Пароли приложений».
-2. Создать новый пароль, например с названием «Telegram Bot».
-3. Прислать боту одним сообщением Apple ID и этот пароль — бот проверит соединение и сразу удалит сообщение с паролем из чата.
 
 ## Деплой (Vercel)
 
@@ -134,14 +126,13 @@ src/
   config/                    env (Zod), logger, Prisma-клиент (Turso/libSQL)
   bot/
     commands/                /start, /new, /events, /settings, /cancel, /help
-    conversations/            онбординг, визард /new, /settings, подключение календарей
+    conversations/            онбординг, визард /new, /settings, подключение календаря
     keyboards/                инлайн-календарь, клавиатуры визарда
     middleware/                allowlist, rate limit, userContext, error handler
     conversationStorage.ts    Prisma-адаптер для @grammyjs/conversations
   calendar/
-    CalendarService.ts        фасад поверх Google/CalDAV
-    providers/                GoogleCalendarProvider, CalDavProvider
-    eventBuilder.ts           EventDraft -> payload/ICS, вся логика дат
+    providers/                GoogleCalendarProvider
+    eventBuilder.ts           EventDraft -> payload Google Calendar, вся логика дат
   services/                  TokenService (шифрование, refresh Google-токена)
   routes/                     /healthz, /oauth/google/*
   utils/                      crypto, datetime, parsers, format, errors

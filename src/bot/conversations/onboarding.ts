@@ -4,19 +4,13 @@ import { InlineKeyboard } from "grammy";
 import { prisma } from "../../config/db.js";
 import type { BotContext } from "../context.js";
 import { buildMainMenuKeyboard } from "../keyboards/mainMenuKeyboard.js";
-import { connectCalDavCalendar } from "./connectCalDav.js";
 import { connectGoogleCalendar } from "./connectGoogle.js";
 import { collectTimezone, timezoneKeyboard } from "./timezone.js";
 
 type OnboardingConversation = Conversation<BotContext, Context>;
 
-function calendarChoiceKeyboard(): InlineKeyboard {
-  return new InlineKeyboard()
-    .text("Google Calendar", "cal:google")
-    .row()
-    .text("Apple iCloud", "cal:icloud")
-    .row()
-    .text("Готово", "cal:done");
+function calendarConnectKeyboard(): InlineKeyboard {
+  return new InlineKeyboard().text("Готово", "cal:done");
 }
 
 async function hasConnectedCalendar(conversation: OnboardingConversation, telegramId: number): Promise<boolean> {
@@ -26,30 +20,22 @@ async function hasConnectedCalendar(conversation: OnboardingConversation, telegr
   return count > 0;
 }
 
-async function collectCalendarChoice(
+async function collectCalendarConnect(
   conversation: OnboardingConversation,
   ctx: Context,
   telegramId: number,
 ): Promise<void> {
+  await connectGoogleCalendar(conversation, ctx);
+  await ctx.reply("Як підключиш — натисни «Готово».", { reply_markup: calendarConnectKeyboard() });
+
   for (;;) {
-    const update = await conversation.waitForCallbackQuery(["cal:google", "cal:icloud", "cal:done"]);
+    const update = await conversation.waitForCallbackQuery(["cal:done"]);
     await update.answerCallbackQuery();
 
-    const choice = update.callbackQuery.data;
-    if (choice === "cal:done") {
-      if (await hasConnectedCalendar(conversation, telegramId)) {
-        return;
-      }
-      await ctx.reply("Спочатку підключи хоча б один календар — Google або iCloud.", {
-        reply_markup: calendarChoiceKeyboard(),
-      });
-      continue;
+    if (await hasConnectedCalendar(conversation, telegramId)) {
+      return;
     }
-    if (choice === "cal:google") {
-      await connectGoogleCalendar(conversation, ctx);
-    } else {
-      await connectCalDavCalendar(conversation, ctx);
-    }
+    await ctx.reply("Спочатку підключи Google Calendar.", { reply_markup: calendarConnectKeyboard() });
   }
 }
 
@@ -72,12 +58,9 @@ export async function onboarding(conversation: OnboardingConversation, ctx: Cont
     prisma.user.update({ where: { telegramId: BigInt(telegramId) }, data: { timezone } }),
   );
 
-  await ctx.reply(
-    `✅ Часовий пояс: ${timezone}\n\nТепер підключимо календар. Можна обидва — потім виберешь основний.`,
-    { reply_markup: calendarChoiceKeyboard() },
-  );
+  await ctx.reply(`✅ Часовий пояс: ${timezone}\n\nТепер підключимо Google Calendar.`);
 
-  await collectCalendarChoice(conversation, ctx, telegramId);
+  await collectCalendarConnect(conversation, ctx, telegramId);
 
   await ctx.reply("Все готово 🎉\n\nЩо зробити?", { reply_markup: buildMainMenuKeyboard() });
 }

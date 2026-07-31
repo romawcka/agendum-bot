@@ -4,7 +4,7 @@ import { logger } from "../../config/logger.js";
 import { getValidGoogleClient } from "../../services/TokenService.js";
 import { AppError } from "../../utils/errors.js";
 import { buildGoogleEventPayload } from "../eventBuilder.js";
-import type { CalendarProvider, CreatedEvent, DeletedEvent } from "../types.js";
+import type { CreatedEvent, DeletedEvent, EventDraft } from "../types.js";
 
 const CALENDAR_UNAVAILABLE_MESSAGE = "Календар тимчасово недоступний. Спробуй ще раз за хвилину";
 
@@ -16,8 +16,8 @@ function isNotFound(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && (err as { code: unknown }).code === 404;
 }
 
-export const GoogleCalendarProvider: CalendarProvider = {
-  async createEvent(account, draft): Promise<CreatedEvent> {
+export const GoogleCalendarProvider = {
+  async createEvent(account: CalendarAccount, draft: EventDraft): Promise<CreatedEvent> {
     try {
       const auth = await getValidGoogleClient(account);
       const calendar = google.calendar({ version: "v3", auth });
@@ -38,7 +38,7 @@ export const GoogleCalendarProvider: CalendarProvider = {
     }
   },
 
-  async deleteEvent(account, externalId): Promise<DeletedEvent> {
+  async deleteEvent(account: CalendarAccount, externalId: string): Promise<DeletedEvent> {
     try {
       const auth = await getValidGoogleClient(account);
       const calendar = google.calendar({ version: "v3", auth });
@@ -56,7 +56,7 @@ export const GoogleCalendarProvider: CalendarProvider = {
     }
   },
 
-  async testConnection(account): Promise<boolean> {
+  async testConnection(account: CalendarAccount): Promise<boolean> {
     try {
       const auth = await getValidGoogleClient(account);
       const calendar = google.calendar({ version: "v3", auth });

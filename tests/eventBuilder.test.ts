@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCalDavIcsEvent, buildEventTimeRange, buildGoogleEventPayload } from "../src/calendar/eventBuilder.js";
+import { buildEventTimeRange, buildGoogleEventPayload } from "../src/calendar/eventBuilder.js";
 import type { EventDraft } from "../src/calendar/types.js";
 
 const TZ = "Europe/Warsaw";
@@ -85,30 +85,5 @@ describe("buildGoogleEventPayload", () => {
   it("sets a popup reminder override matching reminderMinutes, with useDefault false", () => {
     const payload = buildGoogleEventPayload(timedDraft({ reminderMinutes: 30 }));
     expect(payload.reminders).toEqual({ useDefault: false, overrides: [{ method: "popup", minutes: 30 }] });
-  });
-});
-
-describe("buildCalDavIcsEvent", () => {
-  it("omits DESCRIPTION from the event body when none is given", () => {
-    const ics = buildCalDavIcsEvent(timedDraft({ description: undefined }), "uid-1");
-    const eventBody = ics.split("BEGIN:VALARM")[0]!;
-    expect(eventBody).not.toContain("DESCRIPTION:");
-  });
-
-  it("includes DESCRIPTION when given", () => {
-    const ics = buildCalDavIcsEvent(timedDraft({ description: "Кабинет 305" }), "uid-2");
-    expect(ics).toContain("DESCRIPTION:");
-  });
-
-  it("uses VALUE=DATE for all-day DTSTART/DTEND, end = start + 1 day", () => {
-    const ics = buildCalDavIcsEvent(allDayDraft({ date: "2026-08-14" }), "uid-3");
-    expect(ics).toContain("DTSTART;VALUE=DATE:20260814");
-    expect(ics).toContain("DTEND;VALUE=DATE:20260815");
-  });
-
-  it("sets a VALARM that triggers before the start (not after, not relative to end)", () => {
-    const ics = buildCalDavIcsEvent(timedDraft({ reminderMinutes: 30 }), "uid-4");
-    expect(ics).toContain("TRIGGER:-PT30M");
-    expect(ics).not.toContain("RELATED=END");
   });
 });

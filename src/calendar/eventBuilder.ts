@@ -1,12 +1,6 @@
 import type { calendar_v3 } from "googleapis";
-import icalImport, { ICalAlarmType, type ICalCalendar, type ICalCalendarData } from "ical-generator";
 import { DateTime } from "luxon";
 import type { EventDraft } from "./types.js";
-
-// Workaround: same NodeNext dual-package-hazard as helmet (see src/app.ts) —
-// on some npm installs (observed on Vercel's Linux build, not locally) TS
-// resolves this default export as a non-callable namespace type.
-const ical = icalImport as unknown as (data?: ICalCalendarData) => ICalCalendar;
 
 export interface EventTimeRange {
   allDay: boolean;
@@ -14,15 +8,14 @@ export interface EventTimeRange {
   start: DateTime;
   /**
    * Event end, in draft.timezone. For all-day events this is the date plus
-   * one day — Google's end.date is exclusive (invariant 3), and the same
-   * "day after" convention keeps CalDAV's DTEND consistent with it.
+   * one day — Google's end.date is exclusive (invariant 3).
    */
   end: DateTime;
 }
 
 /**
  * Turns an EventDraft's date/time/duration fields into concrete start/end
- * instants. Shared by every CalendarProvider so the midnight-rollover and
+ * instants. Shared with buildGoogleEventPayload so the midnight-rollover and
  * all-day math (invariants 3 and 5) is implemented exactly once.
  */
 export function buildEventTimeRange(draft: EventDraft): EventTimeRange {
@@ -79,29 +72,4 @@ export function buildGoogleEventPayload(draft: EventDraft): calendar_v3.Schema$E
     start: { dateTime: range.start.toISO(), timeZone: draft.timezone },
     end: { dateTime: range.end.toISO(), timeZone: draft.timezone },
   };
-}
-
-/**
- * EventDraft -> ICS string for CalDAV (tech spec §6). Same invariants as
- * buildGoogleEventPayload: description omitted entirely when absent,
- * all-day uses DTEND = date + 1 day, reminder is a VALARM before start.
- */
-export function buildCalDavIcsEvent(draft: EventDraft, uid: string): string {
-  const range = buildEventTimeRange(draft);
-  const calendar = ical({ prodId: "//Agendum Bot//RU" });
-
-  calendar.createEvent({
-    id: uid,
-    start: range.start.toJSDate(),
-    end: range.end.toJSDate(),
-    allDay: range.allDay,
-    timezone: draft.timezone,
-    summary: draft.title,
-    ...(draft.description ? { description: draft.description } : {}),
-    // ical-generator's trigger() setter negates its input; positive seconds
-    // here is what produces the standard ICS "before start" TRIGGER:-PT..M.
-    alarms: [{ type: ICalAlarmType.display, trigger: draft.reminderMinutes * 60 }],
-  });
-
-  return calendar.toString();
 }

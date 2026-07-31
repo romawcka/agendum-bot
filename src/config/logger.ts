@@ -7,7 +7,6 @@ export const logger = pino({
     paths: [
       "*.accessToken",
       "*.refreshToken",
-      "*.caldavPass",
       "*.password",
       "*.ENCRYPTION_KEY",
       "req.headers.authorization",

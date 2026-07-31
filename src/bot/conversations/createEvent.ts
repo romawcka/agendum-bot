@@ -3,7 +3,7 @@ import type { Conversation } from "@grammyjs/conversations";
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { DateTime } from "luxon";
-import { CalendarService } from "../../calendar/CalendarService.js";
+import { GoogleCalendarProvider } from "../../calendar/providers/GoogleCalendarProvider.js";
 import type { EventDraft } from "../../calendar/types.js";
 import { prisma } from "../../config/db.js";
 import { formatPreview, formatSuccessCard, type PreviewDraft } from "../../utils/format.js";
@@ -29,7 +29,6 @@ interface WizardDraft {
   date: string;
   startTime?: string;
   durationMinutes?: number;
-  accountId: number;
 }
 
 type StepUpdate = { kind: "cancel" } | { kind: "text"; text: string } | { kind: "callback"; data: string };
@@ -288,47 +287,12 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
   }
 }
 
-function accountLabel(account: CalendarAccount): string {
-  return account.provider === "GOOGLE" ? "Google" : "iCloud";
-}
-
-async function collectDefaultAccount(
-  conversation: WizardConversation,
-  ctx: Context,
-  accounts: CalendarAccount[],
-): Promise<Cancellable<number>> {
-  const keyboard = new InlineKeyboard();
-  accounts.forEach((account, i) => {
-    if (i > 0) keyboard.row();
-    keyboard.text(accountLabel(account), `acct:${account.id}`);
-  });
-  await ctx.reply(
-    "У тебе підключені Google та iCloud. У якому створювати події за замовчуванням?\nПотім можна змінити в /settings.",
-    { reply_markup: keyboard },
-  );
-
-  const validIds = new Set(accounts.map((a) => a.id));
-
-  for (;;) {
-    const update = await nextStepUpdate(conversation);
-    if (update.kind === "cancel") return CANCEL;
-    if (update.kind === "callback" && update.data.startsWith("acct:")) {
-      const id = Number(update.data.slice("acct:".length));
-      // Guards against a stale button, e.g. the account was disconnected via
-      // /settings between rendering this keyboard and the user tapping it.
-      if (validIds.has(id)) {
-        return id;
-      }
-    }
-  }
-}
-
-type EditField = "title" | "description" | "date" | "time" | "duration" | "calendar" | "back";
+type EditField = "title" | "description" | "date" | "time" | "duration" | "back";
 
 async function collectEditField(
   conversation: WizardConversation,
   ctx: Context,
-  opts: { allDay: boolean; multipleAccounts: boolean },
+  opts: { allDay: boolean },
 ): Promise<Cancellable<EditField>> {
   const keyboard = new InlineKeyboard()
     .text("Назва", "edit:title")
@@ -339,9 +303,6 @@ async function collectEditField(
     .row();
   if (!opts.allDay) {
     keyboard.text("Час", "edit:time").row().text("Тривалість", "edit:duration").row();
-  }
-  if (opts.multipleAccounts) {
-    keyboard.text("Календар", "edit:calendar").row();
   }
   keyboard.text("⬅️ Назад до перегляду", "edit:back");
 
@@ -393,28 +354,27 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   // (expiresAt, createdAt) silently degrade to strings on JSON.parse — revived
   // right below, since on serverless nearly every wizard step is a *replay*
   // from that stored JSON, not a fresh Prisma query.
-  const { user, accounts: rawAccounts } = await conversation.external(async () => {
+  const { user, account: rawAccount } = await conversation.external(async () => {
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { telegramId: BigInt(telegramId) } });
-    const calendarAccounts = await prisma.calendarAccount.findMany({
-      where: { userId: dbUser.id, isActive: true },
-    });
+    const calendarAccount = await prisma.calendarAccount.findUnique({ where: { userId: dbUser.id } });
     return {
       user: {
         id: dbUser.id,
         timezone: dbUser.timezone,
         defaultReminder: dbUser.defaultReminder,
-        defaultAccountId: dbUser.defaultAccountId,
       },
-      accounts: calendarAccounts,
+      account: calendarAccount,
     };
   });
-  const accounts: CalendarAccount[] = rawAccounts.map((a) => ({
-    ...a,
-    expiresAt: a.expiresAt ? new Date(a.expiresAt) : null,
-    createdAt: new Date(a.createdAt),
-  }));
+  const account: CalendarAccount | null = rawAccount
+    ? {
+        ...rawAccount,
+        expiresAt: rawAccount.expiresAt ? new Date(rawAccount.expiresAt) : null,
+        createdAt: new Date(rawAccount.createdAt),
+      }
+    : null;
 
-  if (accounts.length === 0) {
+  if (!account || !account.isActive) {
     await ctx.reply("Спочатку підключи календар:", {
       reply_markup: new InlineKeyboard().text("Налаштування", "menu:settings"),
     });
@@ -446,7 +406,6 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     description: descriptionResult,
     date: dateResult,
     allDay: typeResult === "allday",
-    accountId: 0,
   };
 
   if (!draft.allDay) {
@@ -459,22 +418,8 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     draft.durationMinutes = durationResult;
   }
 
-  if (accounts.length === 1) {
-    draft.accountId = accounts[0]!.id;
-  } else if (user.defaultAccountId && accounts.some((a) => a.id === user.defaultAccountId)) {
-    draft.accountId = user.defaultAccountId;
-  } else {
-    const chosen = await collectDefaultAccount(conversation, ctx, accounts);
-    if (chosen === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
-    draft.accountId = chosen;
-    await conversation.external(() =>
-      prisma.user.update({ where: { id: user.id }, data: { defaultAccountId: chosen } }),
-    );
-  }
-
   // Превью + «Изменить» + «Отправить»/«Отменить»
   for (;;) {
-    const account = accounts.find((a) => a.id === draft.accountId)!;
     await ctx.reply(formatPreview(toPreviewDraft(draft, reminderMinutes), timezone, account.label), {
       reply_markup: buildConfirmKeyboard(),
     });
@@ -489,10 +434,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     }
 
     if (action.data === "wizard:edit") {
-      const field = await collectEditField(conversation, ctx, {
-        allDay: draft.allDay,
-        multipleAccounts: accounts.length > 1,
-      });
+      const field = await collectEditField(conversation, ctx, { allDay: draft.allDay });
       if (field === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
       if (field === "back") continue;
 
@@ -516,13 +458,6 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
         const result = await collectDuration(conversation, ctx);
         if (result === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
         draft.durationMinutes = result;
-      } else if (field === "calendar") {
-        const result = await collectDefaultAccount(conversation, ctx, accounts);
-        if (result === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
-        draft.accountId = result;
-        await conversation.external(() =>
-          prisma.user.update({ where: { id: user.id }, data: { defaultAccountId: result } }),
-        );
       }
       continue;
     }
@@ -533,14 +468,13 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   }
 
   // Отправка — с гашением кнопок и ретраем при ошибке (invariant 6, tech spec §12)
-  const account = accounts.find((a) => a.id === draft.accountId)!;
   const eventDraft = toEventDraft(draft, timezone, reminderMinutes);
 
   for (;;) {
     await ctx.reply("⏳ Створюю подію…");
 
     try {
-      const created = await CalendarService.createEvent(account, eventDraft);
+      const created = await GoogleCalendarProvider.createEvent(account, eventDraft);
       const savedEvent = await conversation.external(() =>
         prisma.event.create({
           data: {
@@ -569,7 +503,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
       });
       return;
     } catch (err) {
-      if (err instanceof AppError && err.code !== "google_create_failed" && err.code !== "caldav_create_failed") {
+      if (err instanceof AppError && err.code !== "google_create_failed") {
         await ctx.reply(`❌ ${err.userMessage}`);
         return;
       }

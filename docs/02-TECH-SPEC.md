@@ -15,7 +15,6 @@
 | ORM | Prisma | Миграции, типобезопасность |
 | Даты/TZ | Luxon | Корректная работа с IANA-таймзонами и DST |
 | Google Calendar | `googleapis` | Официальный SDK |
-| iCloud (CalDAV) | `tsdav` + `ical-generator` | Рабочая связка для Apple Calendar |
 | Логи | Pino | Структурированные JSON-логи |
 | Валидация | Zod | Валидация env и входных данных |
 | Тесты | Vitest | Быстрые unit-тесты парсеров и билдеров |
@@ -33,27 +32,17 @@ Telegram ──webhook──▶ Express ──▶ grammY bot
                         │             └─▶ Callback handlers
                         │
                         └─▶ /oauth/google/callback ──▶ TokenService
-
-                 ┌──────────────────────────────┐
-                 │      CalendarService          │  единый интерфейс
-                 └───────┬───────────────┬───────┘
-                         │               │
-              GoogleCalendarProvider   CalDavProvider
-                         │               │
-                    Google API      iCloud CalDAV
+                                                            │
+                                                  GoogleCalendarProvider
+                                                            │
+                                                        Google API
 
                  Turso/libSQL (Prisma)
 ```
 
-**Ключевой принцип:** `CalendarService` — фасад с единым интерфейсом. Оба провайдера реализуют один контракт, вызывающий код не знает, какой календарь используется.
+**Ключевой принцип:** единственный провайдер — `GoogleCalendarProvider`, вызывающий код обращается к нему напрямую (никакой multi-provider абстракции — убрана вместе с iCloud/CalDAV).
 
 ```ts
-interface CalendarProvider {
-  createEvent(account: CalendarAccount, event: EventDraft): Promise<CreatedEvent>;
-  deleteEvent(account: CalendarAccount, externalId: string): Promise<void>;
-  testConnection(account: CalendarAccount): Promise<boolean>;
-}
-
 interface EventDraft {
   title: string;
   description?: string;          // отсутствует => не отправляем поле в API
@@ -91,11 +80,9 @@ src/
       errorHandler.ts
       userContext.ts          загрузка/создание User в ctx.state
   calendar/
-    CalendarService.ts
     providers/
       GoogleCalendarProvider.ts
-      CalDavProvider.ts
-    eventBuilder.ts           EventDraft -> payload провайдера
+    eventBuilder.ts           EventDraft -> payload Google Calendar
   services/
     UserService.ts
     EventService.ts
@@ -145,38 +132,31 @@ model User {
   firstName         String?
   username          String?
   timezone          String?              // IANA; null до онбординга
-  defaultAccountId  Int?                 // выбранный календарь по умолчанию
   defaultReminder   Int       @default(30)  // минуты; задел на итерацию 3
   isBlocked         Boolean   @default(false)
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  accounts          CalendarAccount[]
+  account           CalendarAccount?
   events            Event[]
   session           WizardSession?
 }
 
+// Только Google (iCloud/CalDAV убраны) — не более одного аккаунта на
+// пользователя, отсюда userId @unique вместо составного [userId, provider].
 model CalendarAccount {
   id            Int       @id @default(autoincrement())
-  userId        Int
-  provider      String                    // "GOOGLE" | "CALDAV"
-  label         String                    // "Google Calendar" / "iCloud"
-  externalId    String                    // calendarId (Google) или URL коллекции (CalDAV)
-  // Google:
+  userId        Int       @unique
+  label         String                    // "Google Calendar"
+  externalId    String                    // calendarId
   accessToken   String?                   // зашифровано
   refreshToken  String?                   // зашифровано
   expiresAt     DateTime?
-  // CalDAV:
-  caldavUrl     String?
-  caldavUser    String?
-  caldavPass    String?                   // зашифровано
   isActive      Boolean   @default(true)
   createdAt     DateTime  @default(now())
 
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   events        Event[]
-
-  @@unique([userId, provider])
 }
 
 model Event {
@@ -218,8 +198,6 @@ model OAuthState {
 
 // enum-ов нет: SQLite их не поддерживает.
 // В коде:
-//   export const PROVIDERS = ['GOOGLE', 'CALDAV'] as const;
-//   export type Provider = typeof PROVIDERS[number];
 //   export const EVENT_STATUSES = ['ACTIVE', 'DELETED'] as const;
 //   export type EventStatus = typeof EVENT_STATUSES[number];
 ```
@@ -259,19 +237,7 @@ model OAuthState {
 - Ключевая деталь: у Google для all-day `end.date` **эксклюзивен** — для однодневного события это дата + 1 день.
 - Refresh токена: перед каждым запросом проверяем `expiresAt`; при `invalid_grant` помечаем аккаунт неактивным и просим переподключить.
 
-## 6. Интеграция: Apple iCloud (CalDAV)
-
-- **Аутентификация:** Apple ID + app-specific password (обычный пароль не работает при 2FA).
-- **Discovery:** `tsdav` → `createDAVClient` с `serverUrl: 'https://caldav.icloud.com'`, `authMethod: 'Basic'` → `fetchCalendars()` → выбираем первый writable календарь (или даём выбрать пользователю, если их несколько).
-- **Создание события:** генерируем ICS через `ical-generator`, кладём через `createCalendarObject`. `externalId` = URL созданного объекта (нужен для удаления).
-- **Напоминание:** VALARM с `trigger: -PT30M`.
-- **All-day:** `allDay: true` в ical-generator, `DTSTART;VALUE=DATE`.
-- **Timezone:** явно указываем `timezone` при генерации ICS.
-- **Удаление:** `deleteCalendarObject` по сохранённому URL; 404 трактуем как «уже удалено» — не ошибка.
-
-**Безопасность:** сообщение с паролем удаляется через `ctx.api.deleteMessage` сразу после чтения; пароль шифруется перед записью в БД; в логи не попадает никогда.
-
-## 7. Логика дат и времени
+## 6. Логика дат и времени
 
 Вся работа — через Luxon, в БД всё в UTC, пользователю показывается в его таймзоне.
 
@@ -292,7 +258,7 @@ const end   = start.plus({ minutes: durationMinutes });
 
 **Парсинг даты вручную:** строго `дд/мм/гггг`. Всё остальное — переспрос с подсказкой формата.
 
-## 8. Шаг «Дата»
+## 7. Шаг «Дата»
 
 Верхнеуровневое меню: `Сьогодні` · `Завтра` · `Своя дата` (ручной ввод `дд/мм/гггг`) · `📅 Календар` (открывает инлайн-календарь ниже).
 
@@ -307,13 +273,13 @@ const end   = start.plus({ minutes: durationMinutes });
 - Кнопка «⌨️ Ввести вручную» — переключает на текстовый ввод `дд/мм/гггг`.
 - Ограничение перелистывания: ±3 года от текущей даты.
 
-## 9. Управление состоянием визарда
+## 8. Управление состоянием визарда
 
 - Плагин `@grammyjs/conversations` с **персистентным storage-адаптером на Prisma** (модель `WizardSession`), а не in-memory.
 - При `/cancel` или таймауте (60 мин) сессия удаляется.
 - Запуск нового `/new` при активной сессии: бот спрашивает «Продолжить незавершённое или начать заново?».
 
-## 10. Переменные окружения
+## 9. Переменные окружения
 
 ```
 NODE_ENV=production
@@ -341,7 +307,7 @@ LOG_LEVEL=info
 
 Все переменные валидируются через Zod при старте — процесс падает с понятной ошибкой, если чего-то не хватает.
 
-## 11. Эндпоинты Express
+## 10. Эндпоинты Express
 
 | Метод | Путь | Назначение |
 |---|---|---|
@@ -350,28 +316,27 @@ LOG_LEVEL=info
 | GET | `/oauth/google/callback` | Обмен кода на токены |
 | GET | `/healthz` | Health check: статус процесса + пинг БД |
 
-## 12. Обработка ошибок
+## 11. Обработка ошибок
 
 Глобальный `bot.catch` + Express error middleware.
 
 | Ситуация | Ответ пользователю |
 |---|---|
 | Google токен истёк и не рефрешится | «Доступ до Google Calendar втрачено. Підключи знову: /settings» |
-| CalDAV 401 | «Пароль для iCloud більше не працює. Онови його в /settings» |
-| Сеть/5xx от провайдера | «Календар тимчасово недоступний. Спробуй ще раз за хвилину» + кнопка «🔄 Повторити» (черновик события сохранён) |
+| Сеть/5xx от Google | «Календар тимчасово недоступний. Спробуй ще раз за хвилину» + кнопка «🔄 Повторити» (черновик события сохранён) |
 | Событие уже удалено в календаре | «Цю подію вже видалено» + убрать из списка |
 | Невалидный ввод | Конкретная подсказка с примером правильного формата |
 
 Никаких stack trace пользователю. Всё техническое — в Pino с `userId` и `requestId`.
 
-## 13. Тесты (минимум для итерации 1)
+## 12. Тесты (минимум для итерации 1)
 
 - `parsers.test.ts` — дата, время, длительность: валидные и невалидные входы.
 - `datetime.test.ts` — переход через полночь, DST, all-day end-date +1.
 - `eventBuilder.test.ts` — description отсутствует ⇒ поля нет в payload; all-day vs timed; напоминание.
-- Интеграционные тесты провайдеров — с моками HTTP, без реальных вызовов API.
+- `googleCalendarProvider.test.ts` — интеграционный тест провайдера с моками HTTP, без реальных вызовов API.
 
-## 14. Деплой
+## 13. Деплой
 
 БД (Turso/libSQL) сетевая, не локальный файл — приложение не завязано на постоянный диск конкретного хоста, что и делает возможным serverless-деплой.
 

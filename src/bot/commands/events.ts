@@ -1,7 +1,7 @@
 import type { CalendarAccount, Event } from "@prisma/client";
 import { InlineKeyboard } from "grammy";
 import { DateTime } from "luxon";
-import { CalendarService } from "../../calendar/CalendarService.js";
+import { GoogleCalendarProvider } from "../../calendar/providers/GoogleCalendarProvider.js";
 import { prisma } from "../../config/db.js";
 import { logger } from "../../config/logger.js";
 import { toUserMessage } from "../../utils/errors.js";
@@ -25,17 +25,13 @@ async function fetchUpcomingEvents(userId: number, timezone: string): Promise<Ev
   });
 }
 
-function accountShortLabel(account: CalendarAccount): string {
-  return account.provider === "GOOGLE" ? "Google" : "iCloud";
-}
-
 function formatEventLine(index: number, event: EventWithAccount, timezone: string): string {
   const start = DateTime.fromJSDate(event.startsAt).setZone(timezone);
   const dateStr = start.toFormat("dd.MM");
   const timePart = event.allDay
     ? "весь день"
     : `${start.toFormat("HH:mm")} – ${DateTime.fromJSDate(event.endsAt ?? event.startsAt).setZone(timezone).toFormat("HH:mm")}`;
-  return `${index}. ${event.title}\n   ${dateStr}, ${timePart} · ${accountShortLabel(event.account)}`;
+  return `${index}. ${event.title}\n   ${dateStr}, ${timePart} · Google`;
 }
 
 function formatEventDateLine(event: EventWithAccount, timezone: string): string {
@@ -148,7 +144,7 @@ export async function eventDeleteConfirmCallback(ctx: BotContext): Promise<void>
   }
 
   try {
-    const result = await CalendarService.deleteEvent(event.account, event.externalId);
+    const result = await GoogleCalendarProvider.deleteEvent(event.account, event.externalId);
     await prisma.event.update({ where: { id: event.id }, data: { status: "DELETED" } });
 
     const text = result.alreadyDeleted

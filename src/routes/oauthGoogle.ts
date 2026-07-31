@@ -79,7 +79,7 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
     });
 
     await prisma.calendarAccount.upsert({
-      where: { userId_provider: { userId: user.id, provider: "GOOGLE" } },
+      where: { userId: user.id },
       update: {
         externalId: "primary",
         label: "Google Calendar",
@@ -90,7 +90,6 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
       },
       create: {
         userId: user.id,
-        provider: "GOOGLE",
         externalId: "primary",
         label: "Google Calendar",
         accessToken: encrypted.accessToken,
