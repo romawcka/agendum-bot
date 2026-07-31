@@ -36,9 +36,12 @@ type StepUpdate = { kind: "cancel" } | { kind: "text"; text: string } | { kind: 
 
 /**
  * Every step goes through this. Handles /cancel (and the ❌ Cancel button)
- * uniformly, and intercepts /new mid-wizard to show the "resume or restart"
- * prompt from the UX doc's "Other" section instead of letting it fall
- * through as literal input to whatever field is currently being collected.
+ * uniformly, intercepts /new mid-wizard to show the "resume or restart"
+ * prompt from the UX doc's "Other" section, and swallows any other slash
+ * command generically — none of them should ever fall through as literal
+ * input to whatever field is currently being collected (e.g. sending
+ * /events while the bot is waiting for a title must not silently become
+ * the title just because it's non-empty text).
  */
 async function nextStepUpdate(conversation: WizardConversation): Promise<StepUpdate> {
   for (;;) {
@@ -71,6 +74,10 @@ async function nextStepUpdate(conversation: WizardConversation): Promise<StepUpd
         return { kind: "cancel" };
       }
       continue; // "Resume" — go back to waiting for the actual next input
+    }
+    if (text.startsWith("/")) {
+      await update.reply("Спочатку заверши створення події або натисни «Скасувати».");
+      continue;
     }
 
     return { kind: "text", text };
