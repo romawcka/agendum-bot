@@ -36,13 +36,13 @@ function writeMarker(): void {
 }
 
 function refreshDevDb(): void {
-  console.log(`[ensureDevDb] Дев-копии ${DEV_DB} больше недели — пересоздаю из ${PROD_DB}...`);
+  console.log(`[ensureDevDb] Dev copy ${DEV_DB} is older than a week — recreating from ${PROD_DB}...`);
   execFileSync("turso", ["db", "destroy", DEV_DB, "--yes"], { stdio: "inherit" });
   execFileSync("turso", ["db", "create", DEV_DB, "--from-db", PROD_DB], { stdio: "inherit" });
   console.log(
-    "[ensureDevDb] Готово. Если dev-сервер не сможет подключиться — Turso мог инвалидировать " +
-      `старый токен при пересоздании; перевыпусти его командой "turso db tokens create ${DEV_DB}" ` +
-      "и обнови TURSO_AUTH_TOKEN в .env.",
+    "[ensureDevDb] Done. If the dev server can't connect — Turso may have invalidated " +
+      `the old token on recreation; reissue it with "turso db tokens create ${DEV_DB}" ` +
+      "and update TURSO_AUTH_TOKEN in .env.",
   );
 }
 
@@ -50,9 +50,9 @@ function main(): void {
   const marker = readMarker();
 
   if (marker === undefined) {
-    // Первый запуск: дев-БД предполагается только что созданной вручную по
-    // README (turso db create agendum-bot-dev --from-db agendum-bot) — просто
-    // начинаем отсчёт свежести отсюда, не пересоздаём то, что и так новое.
+    // First run: the dev DB is assumed to have just been created manually per
+    // the README (turso db create agendum-bot-dev --from-db agendum-bot) — just
+    // start the freshness clock here, don't recreate something that's already new.
     writeMarker();
     return;
   }
@@ -66,8 +66,8 @@ function main(): void {
     writeMarker();
   } catch (err) {
     console.warn(
-      "[ensureDevDb] Не удалось обновить дев-копию БД (нет turso CLI, не залогинен, или нет сети) " +
-        "— продолжаю со старой копией.",
+      "[ensureDevDb] Failed to refresh the dev DB copy (no turso CLI, not logged in, or no network) " +
+        "— continuing with the old copy.",
       err instanceof Error ? err.message : err,
     );
   }

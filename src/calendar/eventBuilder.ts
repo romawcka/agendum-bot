@@ -22,20 +22,20 @@ export function buildEventTimeRange(draft: EventDraft): EventTimeRange {
   if (draft.allDay) {
     const start = DateTime.fromFormat(draft.date, "yyyy-MM-dd", { zone: draft.timezone });
     if (!start.isValid) {
-      throw new Error(`Некорректная дата события: ${draft.date} (${start.invalidReason})`);
+      throw new Error(`Invalid event date: ${draft.date} (${start.invalidReason})`);
     }
     return { allDay: true, start, end: start.plus({ days: 1 }) };
   }
 
   if (!draft.startTime || draft.durationMinutes === undefined) {
-    throw new Error("startTime и durationMinutes обязательны для события с точным временем");
+    throw new Error("startTime and durationMinutes are required for a timed event");
   }
 
   const start = DateTime.fromFormat(`${draft.date} ${draft.startTime}`, "yyyy-MM-dd HH:mm", {
     zone: draft.timezone,
   });
   if (!start.isValid) {
-    throw new Error(`Некорректные дата/время события: ${draft.date} ${draft.startTime} (${start.invalidReason})`);
+    throw new Error(`Invalid event date/time: ${draft.date} ${draft.startTime} (${start.invalidReason})`);
   }
 
   return { allDay: false, start, end: start.plus({ minutes: draft.durationMinutes }) };

@@ -14,18 +14,18 @@ async function main(): Promise<void> {
   }
 
   const server = app.listen(env.PORT, () => {
-    logger.info({ port: env.PORT, mode: env.BOT_MODE }, "Сервер запущен");
+    logger.info({ port: env.PORT, mode: env.BOT_MODE }, "Server started");
   });
 
   if (env.BOT_MODE === "polling") {
     await bot.api.deleteWebhook();
     void bot.start({
-      onStart: () => logger.info("Бот запущен в режиме polling"),
+      onStart: () => logger.info("Bot started in polling mode"),
     });
   }
 
   const shutdown = async (signal: string): Promise<void> => {
-    logger.info({ signal }, "Остановка сервера");
+    logger.info({ signal }, "Shutting down server");
     server.close();
     if (env.BOT_MODE === "polling") {
       await bot.stop();
@@ -39,6 +39,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  logger.fatal({ err }, "Фатальная ошибка при старте");
+  logger.fatal({ err }, "Fatal error during startup");
   process.exit(1);
 });

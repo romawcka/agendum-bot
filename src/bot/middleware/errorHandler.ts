@@ -14,12 +14,12 @@ export async function handleBotError(botErr: BotError<BotContext>): Promise<void
       updateId: ctx.update.update_id,
       isOperational: error instanceof AppError ? error.isOperational : false,
     },
-    "Ошибка обработки апдейта бота",
+    "Error handling bot update",
   );
 
   try {
     await ctx.reply(toUserMessage(error));
   } catch (replyErr) {
-    logger.error({ err: replyErr, userId }, "Не удалось отправить сообщение об ошибке пользователю");
+    logger.error({ err: replyErr, userId }, "Failed to send error message to user");
   }
 }

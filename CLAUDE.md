@@ -1,65 +1,65 @@
 # Agendum Bot
 
-Telegram-бот: пошагово превращает заметку в событие Google Calendar.
+Telegram bot: step by step turns a note into a Google Calendar event.
 
-## Где что лежит
+## Where things live
 
-- `docs/01-PRD.md` — продуктовые требования, сценарии, дорожная карта, **реестр фич (раздел 12.3)**
-- `docs/02-TECH-SPEC.md` — архитектура, схема БД, интеграции, env
-- `docs/03-BOT-UX.md` — **точные тексты всех сообщений бота**
-- `docs/features/` — по одному короткому PRD на каждую фичу после итерации 1
-- `docs/features/_TEMPLATE.md` — шаблон для новых feature-PRD
+- `docs/01-PRD.md` — product requirements, scenarios, roadmap, **feature registry (section 12.3)**
+- `docs/02-TECH-SPEC.md` — architecture, DB schema, integrations, env
+- `docs/03-BOT-UX.md` — **exact text of every bot message**
+- `docs/features/` — one short PRD per feature added after iteration 1
+- `docs/features/_TEMPLATE.md` — template for new feature PRDs
 
-Читай нужный документ перед работой над соответствующим слоем. Тексты сообщений бери из UX-документа буквально, не переписывай своими словами.
+Read the relevant doc before working on that layer. Take message text from the UX doc verbatim, don't rephrase it.
 
-## Правило документирования фич
+## Feature documentation rule
 
-Любая новая фича после итерации 1 начинается **не с кода, а с файла** `docs/features/NN-имя.md`, созданного из шаблона.
+Any new feature after iteration 1 starts **not with code, but with a file** `docs/features/NN-name.md`, created from the template.
 
-- Основной PRD не переписывается — он фиксирует итерацию 1. В него добавляется только строка в реестр фич (раздел 12.3).
-- Если фича противоречит инвариантам ниже или разделу 6 основного PRD — остановись и спроси. Молча расходящихся документов быть не должно.
-- Новые тексты бота дублируй в `docs/03-BOT-UX.md`, он остаётся единственным источником правды по формулировкам.
-- Статус в реестре обновляй по ходу работы, а не в конце.
+- The main PRD is not rewritten — it captures iteration 1. Only a line is added to the feature registry (section 12.3).
+- If a feature conflicts with the invariants below or with section 6 of the main PRD — stop and ask. Silently diverging documents are not allowed.
+- Duplicate new bot text into `docs/03-BOT-UX.md` — it remains the single source of truth for wording.
+- Update the registry status as you go, not at the end.
 
-## Стек — не заменять
+## Stack — do not replace
 
-Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` · SQLite-совместимая БД (Turso/libSQL, `@prisma/adapter-libsql`) + Prisma · Luxon · googleapis · Zod · Pino · Vitest
+Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` · SQLite-compatible DB (Turso/libSQL, `@prisma/adapter-libsql`) + Prisma · Luxon · googleapis · Zod · Pino · Vitest
 
-БД сетевая (Turso), не локальный файл — решение принято осознанно, чтобы приложение не было завязано на постоянный диск конкретного хоста (совместимость с serverless-деплоем, напр. Vercel). Prisma-схема при этом осталась `provider = "sqlite"` — сменился только driver adapter.
+The DB is networked (Turso), not a local file — a deliberate decision so the app isn't tied to a specific host's persistent disk (compatibility with serverless deploys, e.g. Vercel). The Prisma schema still has `provider = "sqlite"` — only the driver adapter changed.
 
-## Инварианты
+## Invariants
 
-Нарушение любого из них — баг, даже если код компилируется.
+Breaking any of these is a bug, even if the code compiles.
 
-1. **Описание опционально.** Пропущено — ключ `description` отсутствует в payload к API. Не пустая строка, не `null`.
-2. **Название обязательно.** Пустое или из пробелов — визард не пропускает дальше.
-3. **All-day в Google:** `end.date` эксклюзивен. Однодневное событие = дата + 1 день.
-4. **Таймзона всегда явная.** Расчёты через Luxon в зоне пользователя, хранение в UTC, показ в зоне пользователя. Никогда не полагаться на зону сервера.
-5. **Переход через полночь работает.** 23:30 + 60 мин = 00:30 следующего дня.
-6. **Событие создаётся только по кнопке «Отправить».** Кнопки гасятся сразу после первого нажатия — двойной тап не создаёт дубль.
-7. **Состояние визарда в БД,** не в памяти процесса. Перезапуск не теряет незаконченный диалог. TTL 60 минут.
-8. **Секреты шифруются** (AES-256-GCM, ключ из `ENCRYPTION_KEY`) и никогда не попадают в логи: Google-токены.
-9. **Мультипользовательская модель.** Никаких хардкод-констант под одного человека; доступ режется allowlist-middleware, данные всегда привязаны к `userId`.
-10. **Напоминание 30 минут** живёт в `User.defaultReminder` и в сервисном слое уже сейчас. UI редактирования — итерация 3.
-11. **Пользователю не показывать stack trace.** Человекопонятное сообщение по таблице из техспека, техника — в Pino с `userId` и `requestId`.
-12. **Env валидируется Zod при старте.** Не хватает переменной — падаем с внятной ошибкой.
+1. **Description is optional.** Omitted — the `description` key is absent from the API payload. Not an empty string, not `null`.
+2. **Title is required.** Empty or whitespace-only — the wizard doesn't let you proceed.
+3. **All-day in Google:** `end.date` is exclusive. A one-day event = date + 1 day.
+4. **Timezone is always explicit.** Calculations via Luxon in the user's zone, stored in UTC, displayed in the user's zone. Never rely on the server's zone.
+5. **Crossing midnight works.** 23:30 + 60 min = 00:30 the next day.
+6. **An event is created only via the "Send" button.** Buttons are disabled immediately after the first tap — a double tap doesn't create a duplicate.
+7. **Wizard state lives in the DB,** not in process memory. A restart doesn't lose an unfinished dialog. TTL 60 minutes.
+8. **Secrets are encrypted** (AES-256-GCM, key from `ENCRYPTION_KEY`) and never end up in logs: Google tokens.
+9. **Multi-user model.** No hardcoded constants for a single person; access is gated by allowlist middleware, data is always tied to `userId`.
+10. **The 30-minute reminder** lives in `User.defaultReminder` and in the service layer already. Editing UI — iteration 3.
+11. **Never show the user a stack trace.** A human-readable message per the table in the tech spec; technical detail goes to Pino with `userId` and `requestId`.
+12. **Env is validated with Zod at startup.** A missing variable — fail with a clear error.
 
-## Архитектурное правило на будущее
+## Architectural rule for the future
 
-Слой парсинга ввода изолирован от слоя создания события. В итерации 2 LLM-парсер голоса встанет рядом с визардом и отдаст тот же `EventDraft` на тот же экран превью. Не смешивай эти слои.
+The input-parsing layer is isolated from the event-creation layer. In iteration 2 an LLM voice parser will sit next to the wizard and hand off the same `EventDraft` to the same preview screen. Don't mix these layers.
 
-## Вне зоны итерации 1
+## Out of scope for iteration 1
 
-Голос, LLM-парсинг, свободный текст, редактирование событий, повторы, участники, чтение чужих событий календаря, локализация.
+Voice, LLM parsing, free text, editing events, recurrence, attendees, reading other people's calendar events, localization.
 
-## Команды
+## Commands
 
 ```
-npm run dev            # polling, локально (predev сам обновляет дев-копию Turso раз в неделю)
+npm run dev            # polling, local (predev auto-refreshes the Turso dev copy weekly)
 npm run build
-npm start               # webhook, сборка локально (прод — Vercel, см. "npm run setup:webhook")
-npm run setup:webhook   # разовая регистрация webhook + меню команд после деплоя на Vercel
+npm start               # webhook, local build (prod is Vercel, see "npm run setup:webhook")
+npm run setup:webhook   # one-time webhook + command menu registration after deploying to Vercel
 npm test
-npx prisma migrate deploy   # накатить существующие миграции на Turso; `migrate dev` не работает
-                             # через @prisma/adapter-libsql (см. README «Новая миграция»)
+npx prisma migrate deploy   # apply existing migrations to Turso; `migrate dev` doesn't work
+                             # through @prisma/adapter-libsql (see README "New migration")
 ```

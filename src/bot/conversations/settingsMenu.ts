@@ -100,8 +100,8 @@ async function handleConnectDisconnect(
         await ctx.reply("Google Calendar відключено.");
         return "done";
       }
-      // Google-підключення асинхронне (користувач іде в браузер) — не показуємо
-      // застарілий екран налаштувань одразу після посилання, чекаємо OAuth callback.
+      // Google connection is asynchronous (the user goes to the browser) — don't show
+      // a stale settings screen right after sending the link, wait for the OAuth callback.
       await connectGoogleCalendar(conversation, ctx);
       return "exit";
     }

@@ -5,8 +5,8 @@ export interface PreviewDraft {
   description?: string;
   allDay: boolean;
   date: string; // yyyy-MM-dd
-  startTime?: string; // HH:mm, только если !allDay
-  durationMinutes?: number; // только если !allDay
+  startTime?: string; // HH:mm, only if !allDay
+  durationMinutes?: number; // only if !allDay
   reminderMinutes: number;
 }
 

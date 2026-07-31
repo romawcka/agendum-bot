@@ -26,14 +26,14 @@ export const GoogleCalendarProvider = {
         requestBody: buildGoogleEventPayload(draft),
       });
       if (!data.id) {
-        throw new Error("Google Calendar API не вернул id созданного события");
+        throw new Error("Google Calendar API did not return an id for the created event");
       }
       return { externalId: data.id };
     } catch (err) {
       if (err instanceof AppError) {
         throw err;
       }
-      logger.error({ err, accountId: account.id }, "Не удалось создать событие в Google Calendar");
+      logger.error({ err, accountId: account.id }, "Failed to create event in Google Calendar");
       throw new AppError({ code: "google_create_failed", userMessage: CALENDAR_UNAVAILABLE_MESSAGE, cause: err });
     }
   },
@@ -51,7 +51,7 @@ export const GoogleCalendarProvider = {
       if (err instanceof AppError) {
         throw err;
       }
-      logger.error({ err, accountId: account.id }, "Не удалось удалить событие в Google Calendar");
+      logger.error({ err, accountId: account.id }, "Failed to delete event in Google Calendar");
       throw new AppError({ code: "google_delete_failed", userMessage: CALENDAR_UNAVAILABLE_MESSAGE, cause: err });
     }
   },

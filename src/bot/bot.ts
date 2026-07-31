@@ -87,5 +87,5 @@ export async function registerWebhook(): Promise<void> {
   await bot.api.setWebhook(`${env.BASE_URL}${webhookPath()}`, {
     secret_token: env.TELEGRAM_WEBHOOK_SECRET,
   });
-  logger.info("Вебхук Telegram установлен");
+  logger.info("Telegram webhook registered");
 }

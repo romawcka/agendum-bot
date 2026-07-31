@@ -49,7 +49,7 @@ export function parseCalendarCallback(data: string): CalendarCallback | undefine
 export function buildCalendarKeyboard(yearMonth: string): InlineKeyboard {
   const monthStart = DateTime.fromFormat(yearMonth, "yyyy-MM");
   if (!monthStart.isValid) {
-    throw new Error(`Некорректный yearMonth для календаря: ${yearMonth}`);
+    throw new Error(`Invalid yearMonth for calendar: ${yearMonth}`);
   }
 
   const now = DateTime.now();

@@ -1,145 +1,145 @@
 # Agendum Bot
 
-Telegram-бот, который пошагово превращает заметку в событие Google Calendar — без открытия календарного приложения. Продуктовые требования и точные тексты сообщений: [`docs/01-PRD.md`](docs/01-PRD.md), [`docs/02-TECH-SPEC.md`](docs/02-TECH-SPEC.md), [`docs/03-BOT-UX.md`](docs/03-BOT-UX.md).
+A Telegram bot that turns a note into a Google Calendar event, step by step — no need to open a calendar app. Product requirements and exact message text: [`docs/01-PRD.md`](docs/01-PRD.md), [`docs/02-TECH-SPEC.md`](docs/02-TECH-SPEC.md), [`docs/03-BOT-UX.md`](docs/03-BOT-UX.md).
 
-## Стек
+## Stack
 
 Node 20 · TypeScript strict · Express 4 · grammY + `@grammyjs/conversations` · SQLite (Turso/libSQL) + Prisma (`@prisma/adapter-libsql`) · Luxon · googleapis · Zod · Pino · Vitest
 
-## Локальный запуск
+## Running locally
 
-### 1. Установка
+### 1. Install
 
 ```bash
 npm install
 ```
 
-### 2. Переменные окружения
+### 2. Environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Заполни `.env`:
+Fill in `.env`:
 
-| Переменная | Как получить |
+| Variable | How to get it |
 |---|---|
-| `TELEGRAM_BOT_TOKEN` | см. «Telegram-бот» ниже |
+| `TELEGRAM_BOT_TOKEN` | see "Telegram bot" below |
 | `ENCRYPTION_KEY` | `openssl rand -hex 32` |
-| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | см. «База данных (Turso)» ниже |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | см. «Google OAuth» ниже |
-| `ALLOWLIST_TELEGRAM_IDS` | свой Telegram ID (узнать у [@userinfobot](https://t.me/userinfobot)), через запятую если людей несколько |
-| остальные | значения по умолчанию из `.env.example` подходят для локальной разработки |
+| `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` | see "Database (Turso)" below |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | see "Google OAuth" below |
+| `ALLOWLIST_TELEGRAM_IDS` | your Telegram ID (get it from [@userinfobot](https://t.me/userinfobot)), comma-separated if more than one person |
+| everything else | the defaults in `.env.example` work fine for local development |
 
-Для локальной разработки `BOT_MODE=polling` и `BASE_URL=http://localhost:3000` — этого достаточно, публичный домен не нужен (кроме варианта ниже с ngrok для проверки Google OAuth).
+For local development `BOT_MODE=polling` and `BASE_URL=http://localhost:3000` are enough — no public domain needed (except the ngrok option below for testing Google OAuth).
 
-### 3. База данных (Turso)
+### 3. Database (Turso)
 
-БД — [Turso](https://turso.tech) (managed libSQL, SQLite-совместимый) — нужна и для прода, и для локальной разработки, локального файла больше нет.
+The DB is [Turso](https://turso.tech) (managed libSQL, SQLite-compatible) — used for both prod and local development, there's no local file anymore.
 
 ```bash
-brew install tursodatabase/tap/turso   # или см. turso.tech/#install
+brew install tursodatabase/tap/turso   # or see turso.tech/#install
 turso auth login
 
-turso db create agendum-bot                              # прод-база
-turso db create agendum-bot-dev --from-db agendum-bot     # дев-копия, клон прод-базы
+turso db create agendum-bot                              # prod DB
+turso db create agendum-bot-dev --from-db agendum-bot     # dev copy, cloned from prod
 
 turso db show agendum-bot-dev --url        # → TURSO_DATABASE_URL
 turso db tokens create agendum-bot-dev     # → TURSO_AUTH_TOKEN
 ```
 
-Прогнать существующие миграции на дев-базу:
+Apply existing migrations to the dev DB:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-Дев-копия сама обновляется из прод-базы раз в неделю при `npm run dev` (см. `scripts/ensureDevDb.ts`) — вручную пересоздавать не нужно.
+The dev copy refreshes itself from the prod DB weekly on `npm run dev` (see `scripts/ensureDevDb.ts`) — no need to recreate it manually.
 
-#### Создание новой миграции
+#### Creating a new migration
 
-`npx prisma migrate dev` не работает через `@prisma/adapter-libsql` — падает на диагностике (`SQLITE_UNKNOWN: no such table: _prisma_migrations`), похоже на баг совместимости schema engine с адаптером в этой версии Prisma. `migrate deploy` (см. выше) работает штатно — им и накатываем существующие миграции. Для новой миграции (когда меняется `schema.prisma`) генерируем её локально против одноразового файла SQLite, в обход адаптера:
+`npx prisma migrate dev` doesn't work through `@prisma/adapter-libsql` — it fails during diagnostics (`SQLITE_UNKNOWN: no such table: _prisma_migrations`), looks like a schema-engine/adapter compatibility bug in this Prisma version. `migrate deploy` (see above) works fine — that's what we use to apply existing migrations. For a new migration (when `schema.prisma` changes), generate it locally against a throwaway SQLite file, bypassing the adapter:
 
-1. Временно отключить адаптер: переименовать `prisma.config.ts` → `prisma.config.ts.bak`.
-2. В `prisma/schema.prisma` заменить `url = "file:./unused.db"` на реальный локальный файл, например `url = "file:./prisma/scratch.db"`.
-3. `npx prisma migrate dev --name <краткое_описание>` — создаст файл миграции и применит его к `scratch.db` (файл не коммитится, см. `.gitignore`).
-4. Откатить оба временных изменения (`prisma.config.ts.bak` → `prisma.config.ts`, `url` обратно на `"file:./unused.db"`).
-5. `npx prisma migrate deploy` — применить свежесозданную миграцию к дев-Turso, позже так же (с прод-переменными) — к проду.
+1. Temporarily disable the adapter: rename `prisma.config.ts` → `prisma.config.ts.bak`.
+2. In `prisma/schema.prisma`, replace `url = "file:./unused.db"` with a real local file, e.g. `url = "file:./prisma/scratch.db"`.
+3. `npx prisma migrate dev --name <short_description>` — creates the migration file and applies it to `scratch.db` (not committed, see `.gitignore`).
+4. Revert both temporary changes (`prisma.config.ts.bak` → `prisma.config.ts`, `url` back to `"file:./unused.db"`).
+5. `npx prisma migrate deploy` — apply the freshly created migration to the dev Turso DB, later (with prod env vars) to prod as well.
 
-### 4. Запуск
+### 4. Run
 
 ```bash
-npm run dev      # polling, hot reload; перед стартом проверяет свежесть дев-БД (predev)
+npm run dev      # polling, hot reload; checks the dev DB freshness before starting (predev)
 ```
 
 ```bash
-npm run build && npm start   # прод-сборка, тот же процесс что и dev, но BOT_MODE=webhook и без hot reload
+npm run build && npm start   # prod build, same process as dev but BOT_MODE=webhook and no hot reload
 ```
 
-### 5. Тесты
+### 5. Tests
 
 ```bash
 npm test
 ```
 
-Юнит- и интеграционные тесты (провайдер календаря мокается на уровне модуля — реальных сетевых вызовов нет).
+Unit and integration tests (the calendar provider is mocked at the module level — no real network calls).
 
-## Получение credentials
+## Getting credentials
 
-### Telegram-бот
+### Telegram bot
 
-1. Напиши [@BotFather](https://t.me/BotFather) → `/newbot` → следуй инструкциям.
-2. Скопируй токен в `TELEGRAM_BOT_TOKEN`.
+1. Message [@BotFather](https://t.me/BotFather) → `/newbot` → follow the instructions.
+2. Copy the token into `TELEGRAM_BOT_TOKEN`.
 
 ### Google OAuth
 
-Нужен OAuth-клиент для Google Calendar API.
+Needs an OAuth client for the Google Calendar API.
 
-1. [console.cloud.google.com](https://console.cloud.google.com) → создай проект (или выбери существующий).
-2. **APIs & Services → Library** → найди «Google Calendar API» → Enable.
-3. **APIs & Services → OAuth consent screen** → тип **External** (или Internal, если Google Workspace) → заполни минимум (название приложения, email) → добавь себя в Test users, если приложение не опубликовано.
-4. **APIs & Services → Credentials → Create Credentials → OAuth client ID** → тип **Web application**.
-5. **Authorized redirect URIs** → добавь `${BASE_URL}/oauth/google/callback`, например `http://localhost:3000/oauth/google/callback` для локальной разработки.
-6. Скопируй **Client ID** и **Client Secret** в `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+1. [console.cloud.google.com](https://console.cloud.google.com) → create a project (or pick an existing one).
+2. **APIs & Services → Library** → find "Google Calendar API" → Enable.
+3. **APIs & Services → OAuth consent screen** → type **External** (or Internal, for Google Workspace) → fill in the minimum (app name, email) → add yourself to Test users if the app isn't published.
+4. **APIs & Services → Credentials → Create Credentials → OAuth client ID** → type **Web application**.
+5. **Authorized redirect URIs** → add `${BASE_URL}/oauth/google/callback`, e.g. `http://localhost:3000/oauth/google/callback` for local development.
+6. Copy the **Client ID** and **Client Secret** into `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 
-Проверить OAuth-flow локально без деплоя можно через туннель (например `ngrok http 3000`) — тогда `BASE_URL` и redirect URI в Google Console должны указывать на публичный URL туннеля. При деплое (см. «Деплой» ниже) туннель не нужен — `BASE_URL` указывает на настоящий адрес.
+You can test the OAuth flow locally without deploying via a tunnel (e.g. `ngrok http 3000`) — then `BASE_URL` and the redirect URI in Google Console should point at the tunnel's public URL. When deployed (see "Deploy" below) no tunnel is needed — `BASE_URL` points at the real address.
 
-## Деплой (Vercel)
+## Deploy (Vercel)
 
-БД сетевая (Turso), не локальный файл — приложение не завязано на постоянный диск, что и делает возможным serverless-деплой. `BOT_MODE=webhook` обязателен — на serverless нет процесса, который мог бы поллить.
+The DB is networked (Turso), not a local file — the app isn't tied to a persistent disk, which is what makes a serverless deploy possible. `BOT_MODE=webhook` is required — serverless has no process that could poll.
 
-1. Завести проект на [vercel.com](https://vercel.com), подключить репозиторий.
-2. Выставить в Vercel env-переменные проекта: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `BOT_MODE=webhook`, `BASE_URL` = адрес деплоя (Vercel даёт его после первого деплоя, например `https://agendum-bot.vercel.app`), `ENCRYPTION_KEY`, `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` (прод-база `agendum-bot`, не дев-копия), `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI` (redirect URI — `${BASE_URL}/oauth/google/callback`, добавить в Google Console), `ALLOWLIST_TELEGRAM_IDS`.
-3. Задеплоить. `vercel.json` разворачивает все пути (`/healthz`, `/oauth/google/*`, `/telegram/webhook/...`) на один serverless-хендлер `api/index.ts` — это тот же Express-app, что и в обычном режиме, ничего вручную настраивать не нужно.
-4. `npx prisma migrate deploy` — прогнать схему на прод-базу (руками, с прод-переменными в `.env`, один раз перед первым запуском и при каждой новой миграции).
-5. После первого деплоя — один раз:
+1. Create a project on [vercel.com](https://vercel.com), connect the repo.
+2. Set the project's env vars in Vercel: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `BOT_MODE=webhook`, `BASE_URL` = the deploy address (Vercel gives you this after the first deploy, e.g. `https://agendum-bot.vercel.app`), `ENCRYPTION_KEY`, `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` (prod DB `agendum-bot`, not the dev copy), `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`/`GOOGLE_REDIRECT_URI` (redirect URI — `${BASE_URL}/oauth/google/callback`, add it in Google Console), `ALLOWLIST_TELEGRAM_IDS`.
+3. Deploy. `vercel.json` routes every path (`/healthz`, `/oauth/google/*`, `/telegram/webhook/...`) to a single serverless handler `api/index.ts` — the same Express app as in normal mode, nothing else to configure manually.
+4. `npx prisma migrate deploy` — apply the schema to the prod DB (manually, with prod env vars in `.env`, once before the first run and again for every new migration).
+5. After the first deploy — once:
    ```bash
-   npm run setup:webhook   # с прод-переменными; регистрирует webhook и меню команд
+   npm run setup:webhook   # with prod env vars; registers the webhook and command menu
    ```
-   Serverless не имеет «запуска процесса», поэтому это не происходит само по себе на cold start — только этим скриптом, вручную после (пере)деплоя.
+   Serverless has no "process startup", so this doesn't happen automatically on cold start — only via this script, manually, after each (re)deploy.
 
-## Структура проекта
+## Project structure
 
 ```
 src/
-  index.ts, app.ts          точка входа для локальной разработки (npm run dev), Express-приложение
-  config/                    env (Zod), logger, Prisma-клиент (Turso/libSQL)
+  index.ts, app.ts          entry point for local development (npm run dev), Express app
+  config/                    env (Zod), logger, Prisma client (Turso/libSQL)
   bot/
     commands/                /start, /new, /events, /settings, /cancel, /help
-    conversations/            онбординг, визард /new, /settings, подключение календаря
-    keyboards/                инлайн-календарь, клавиатуры визарда
+    conversations/            onboarding, /new wizard, /settings, calendar connection
+    keyboards/                inline calendar, wizard keyboards
     middleware/                allowlist, rate limit, userContext, error handler
-    conversationStorage.ts    Prisma-адаптер для @grammyjs/conversations
+    conversationStorage.ts    Prisma adapter for @grammyjs/conversations
   calendar/
     providers/                GoogleCalendarProvider
-    eventBuilder.ts           EventDraft -> payload Google Calendar, вся логика дат
-  services/                  TokenService (шифрование, refresh Google-токена)
+    eventBuilder.ts           EventDraft -> Google Calendar payload, all date logic
+  services/                  TokenService (encryption, Google token refresh)
   routes/                     /healthz, /oauth/google/*
   utils/                      crypto, datetime, parsers, format, errors
-api/index.ts                 точка входа для Vercel (serverless)
+api/index.ts                 entry point for Vercel (serverless)
 scripts/
-  setup-webhook.ts            разовая регистрация webhook + меню команд (Vercel)
-  ensureDevDb.ts               автообновление дев-копии Turso (запускается через predev)
+  setup-webhook.ts            one-time webhook + command menu registration (Vercel)
+  ensureDevDb.ts               auto-refresh of the Turso dev copy (runs via predev)
 prisma/schema.prisma
 tests/
 ```

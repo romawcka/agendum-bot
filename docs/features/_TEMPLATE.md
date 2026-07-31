@@ -1,85 +1,85 @@
-# NN — [Название фичи]
+# NN — [Feature name]
 
-**Статус:** Черновик | Готово к разработке | В разработке | Готово | Отклонено
-**Создан:** ДД.ММ.ГГГГ
-**Обновлён:** ДД.ММ.ГГГГ
-**Итерация:** N
+**Status:** Draft | Ready for development | In progress | Done | Rejected
+**Created:** DD.MM.YYYY
+**Updated:** DD.MM.YYYY
+**Iteration:** N
 
 ---
 
-## 1. Проблема
+## 1. Problem
 
-[Что болит сейчас. Конкретный сценарий, где пользователю неудобно. Без решения — только боль.]
+[What hurts right now. A concrete scenario where the user has a hard time. No solution here — just the pain.]
 
-## 2. Область
+## 2. Scope
 
-**Входит:**
-- [ ] [Пункт]
-- [ ] [Пункт]
+**In:**
+- [ ] [Item]
+- [ ] [Item]
 
-**Не входит (осознанно отложено):**
-- [Пункт] — *почему отложено*
-- [Пункт] — *почему отложено*
+**Not in (deliberately deferred):**
+- [Item] — *why deferred*
+- [Item] — *why deferred*
 
-## 3. Сценарии
+## 3. Scenarios
 
-### 3.1 [Основной сценарий]
+### 3.1 [Main scenario]
 
-1. Пользователь [действие]
-2. Бот [реакция]
+1. The user [action]
+2. The bot [reaction]
 3. …
 
-### 3.2 [Краевые случаи]
+### 3.2 [Edge cases]
 
-| Ситуация | Поведение |
+| Situation | Behavior |
 |---|---|
-| [Невалидный ввод] | [Что делает бот] |
-| [Внешний сервис недоступен] | [Что делает бот] |
-| [Данных нет] | [Что делает бот] |
+| [Invalid input] | [What the bot does] |
+| [External service unavailable] | [What the bot does] |
+| [No data] | [What the bot does] |
 
-## 4. Тексты бота
+## 4. Bot text
 
-Новые и изменённые сообщения. Формулировки финальные — реализация берёт их буквально.
+New and changed messages. Wording is final — the implementation takes it verbatim.
 
 ```
-[Точный текст сообщения]
+[Exact message text]
 ```
-Клавиатура: `Кнопка` · `Кнопка`
+Keyboard: `Button` · `Button`
 
-*Изменения существующих текстов дублировать в `docs/03-BOT-UX.md`.*
+*Duplicate changes to existing text into `docs/03-BOT-UX.md`.*
 
-## 5. Изменения данных
+## 5. Data changes
 
-| Модель | Изменение | Миграция |
+| Model | Change | Migration |
 |---|---|---|
-| `[Model]` | [Новое поле / новая модель] | да / нет |
+| `[Model]` | [New field / new model] | yes / no |
 
-Обратная совместимость: [что произойдёт с существующими записями].
+Backward compatibility: [what happens to existing records].
 
-## 6. Влияние на существующее
+## 6. Impact on existing code
 
-| Что трогаем | Как |
+| What we touch | How |
 |---|---|
-| [Модуль / файл] | [Характер изменения] |
+| [Module / file] | [Nature of the change] |
 
-Ломающие изменения: [есть / нет; если есть — какие и как мигрируем].
+Breaking changes: [yes / no; if yes — what, and how we migrate].
 
-## 7. Критерии готовности
+## 7. Readiness criteria
 
-- [ ] [Проверяемое утверждение, а не «работает хорошо»]
-- [ ] [Тесты покрывают краевые случаи из раздела 3.2]
-- [ ] Тексты совпадают с разделом 4
-- [ ] `npm run typecheck && npm test && npm run lint` — зелёные
-- [ ] Реестр фич в `docs/01-PRD.md` обновлён, статус проставлен
+- [ ] [A checkable statement, not "works well"]
+- [ ] [Tests cover the edge cases from section 3.2]
+- [ ] Text matches section 4
+- [ ] `npm run typecheck && npm test && npm run lint` — green
+- [ ] The feature registry in `docs/01-PRD.md` is updated, status is set
 
-## 8. Риски
+## 8. Risks
 
-| Риск | Вероятность | Что делаем |
+| Risk | Likelihood | What we do |
 |---|---|---|
-| [Что может пойти не так] | низкая / средняя / высокая | [Митигация или осознанное принятие] |
+| [What could go wrong] | low / medium / high | [Mitigation, or a deliberate accepted risk] |
 
-## 9. Решения по ходу
+## 9. Decisions made along the way
 
-*Заполняется во время разработки — фиксирует, почему сделано так, а не иначе. Спасает через полгода, когда причина забудется.*
+*Filled in during development — records why something was done this way and not another. Saves you six months from now, when the reason has been forgotten.*
 
-- **ДД.ММ:** [Решение и его причина]
+- **DD.MM:** [Decision and its reason]

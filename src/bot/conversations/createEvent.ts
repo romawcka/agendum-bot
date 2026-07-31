@@ -34,9 +34,9 @@ interface WizardDraft {
 type StepUpdate = { kind: "cancel" } | { kind: "text"; text: string } | { kind: "callback"; data: string };
 
 /**
- * Every step goes through this. Handles /cancel (and the ❌ Отмена button)
+ * Every step goes through this. Handles /cancel (and the ❌ Cancel button)
  * uniformly, and intercepts /new mid-wizard to show the "resume or restart"
- * prompt from the UX doc's "Прочее" section instead of letting it fall
+ * prompt from the UX doc's "Other" section instead of letting it fall
  * through as literal input to whatever field is currently being collected.
  */
 async function nextStepUpdate(conversation: WizardConversation): Promise<StepUpdate> {
@@ -69,7 +69,7 @@ async function nextStepUpdate(conversation: WizardConversation): Promise<StepUpd
       if (choice.callbackQuery.data === "wizard:restart") {
         return { kind: "cancel" };
       }
-      continue; // "Продолжить" — go back to waiting for the actual next input
+      continue; // "Resume" — go back to waiting for the actual next input
     }
 
     return { kind: "text", text };
@@ -418,7 +418,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     draft.durationMinutes = durationResult;
   }
 
-  // Превью + «Изменить» + «Отправить»/«Отменить»
+  // Preview + "Edit" + "Send"/"Cancel"
   for (;;) {
     await ctx.reply(formatPreview(toPreviewDraft(draft, reminderMinutes), timezone, account.label), {
       reply_markup: buildConfirmKeyboard(),
@@ -467,7 +467,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     }
   }
 
-  // Отправка — с гашением кнопок и ретраем при ошибке (invariant 6, tech spec §12)
+  // Submission — buttons disabled, with retry on error (invariant 6, tech spec §12)
   const eventDraft = toEventDraft(draft, timezone, reminderMinutes);
 
   for (;;) {

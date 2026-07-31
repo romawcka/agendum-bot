@@ -6,7 +6,7 @@ const TZ = "Europe/Warsaw";
 
 function timedDraft(overrides: Partial<EventDraft> = {}): EventDraft {
   return {
-    title: "Событие",
+    title: "Event",
     timezone: TZ,
     allDay: false,
     date: "2026-08-14",
@@ -19,7 +19,7 @@ function timedDraft(overrides: Partial<EventDraft> = {}): EventDraft {
 
 function allDayDraft(overrides: Partial<EventDraft> = {}): EventDraft {
   return {
-    title: "Событие",
+    title: "Event",
     timezone: TZ,
     allDay: true,
     date: "2026-08-14",
@@ -65,8 +65,8 @@ describe("buildGoogleEventPayload", () => {
   });
 
   it("includes the description when given", () => {
-    const payload = buildGoogleEventPayload(timedDraft({ description: "Кабинет 305" }));
-    expect(payload.description).toBe("Кабинет 305");
+    const payload = buildGoogleEventPayload(timedDraft({ description: "Room 305" }));
+    expect(payload.description).toBe("Room 305");
   });
 
   it("uses start.date/end.date (not dateTime) for all-day events", () => {

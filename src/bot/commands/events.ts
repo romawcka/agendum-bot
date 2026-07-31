@@ -152,7 +152,7 @@ export async function eventDeleteConfirmCallback(ctx: BotContext): Promise<void>
       : "✅ Подію видалено";
     await ctx.editMessageText(text).catch(() => ctx.reply(text));
   } catch (err) {
-    logger.error({ err, eventId: event.id }, "Не удалось удалить событие");
+    logger.error({ err, eventId: event.id }, "Failed to delete event");
     const text = `❌ ${toUserMessage(err)}`;
     await ctx.editMessageText(text).catch(() => ctx.reply(text));
     return;

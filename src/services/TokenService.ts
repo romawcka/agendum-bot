@@ -56,7 +56,7 @@ export async function getValidGoogleClient(account: CalendarAccount): Promise<Go
   try {
     const { credentials } = await client.refreshAccessToken();
     if (!credentials.access_token || !credentials.expiry_date) {
-      throw new Error("Google не вернул новый access_token при обновлении");
+      throw new Error("Google didn't return a new access_token on refresh");
     }
 
     await prisma.calendarAccount.update({
@@ -70,7 +70,7 @@ export async function getValidGoogleClient(account: CalendarAccount): Promise<Go
     client.setCredentials(credentials);
     return client;
   } catch (err) {
-    logger.error({ err, accountId: account.id }, "Не удалось обновить Google-токен");
+    logger.error({ err, accountId: account.id }, "Failed to refresh Google token");
     await prisma.calendarAccount.update({ where: { id: account.id }, data: { isActive: false } });
     throw new AppError({ code: "google_token_expired", userMessage: GOOGLE_TOKEN_EXPIRED_MESSAGE, cause: err });
   }

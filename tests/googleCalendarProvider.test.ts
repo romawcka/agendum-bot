@@ -39,7 +39,7 @@ function fakeAccount(overrides: Partial<CalendarAccount> = {}): CalendarAccount 
 }
 
 const DRAFT = {
-  title: "Событие",
+  title: "Event",
   timezone: "Europe/Warsaw",
   allDay: false,
   date: "2026-08-14",
@@ -64,7 +64,7 @@ describe("GoogleCalendarProvider.createEvent", () => {
     expect(insertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         calendarId: "primary",
-        requestBody: expect.objectContaining({ summary: "Событие" }),
+        requestBody: expect.objectContaining({ summary: "Event" }),
       }),
     );
   });

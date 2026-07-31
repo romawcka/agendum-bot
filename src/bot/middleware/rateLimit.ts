@@ -22,7 +22,7 @@ export async function rateLimitMiddleware(ctx: BotContext, next: NextFunction): 
 
   if (recentHits.length >= MAX_ACTIONS_PER_WINDOW) {
     hitsByTelegramId.set(telegramId, recentHits);
-    logger.warn({ userId: telegramId }, "Превышен лимит действий в минуту");
+    logger.warn({ userId: telegramId }, "Exceeded the per-minute action limit");
     await ctx.reply("Забагато дій підряд. Зачекай трохи і спробуй знову.");
     return;
   }

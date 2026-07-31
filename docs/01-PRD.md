@@ -1,226 +1,226 @@
-# PRD — Telegram Calendar Bot (Итерация 1)
+# PRD — Telegram Calendar Bot (Iteration 1)
 
-**Версия:** 1.0
-**Дата:** 23.07.2026
-**Статус:** Готово к разработке
+**Version:** 1.0
+**Date:** 2026-07-23
+**Status:** Ready for development
 
 ---
 
-## 1. Краткое описание
+## 1. Summary
 
-Telegram-бот, который позволяет создавать события в личном Google Calendar через пошаговый диалог в чате, без открытия календарного приложения.
+A Telegram bot that lets you create events in your personal Google Calendar through a step-by-step chat dialog, without opening a calendar app.
 
-Пользователь запускает создание события, бот последовательно спрашивает поля (название, описание, дата, время, длительность), показывает превью и по подтверждению создаёт событие в календаре пользователя.
+The user starts creating an event, the bot asks for fields one by one (title, description, date, time, duration), shows a preview, and on confirmation creates the event in the user's calendar.
 
-## 2. Проблема
+## 2. Problem
 
-Создание события в календаре с телефона требует: открыть приложение → найти дату → тапнуть → заполнить форму → сохранить. Это 20–40 секунд и переключение контекста. Когда информация о событии приходит в мессенджере (запись к врачу, встреча, напоминание от близких), хочется зафиксировать её там же, где она получена.
+Creating a calendar event from a phone requires: open the app → find the date → tap → fill in a form → save. That's 20-40 seconds and a context switch. When event information arrives in a messenger (a doctor's appointment, a meeting, a reminder from family), you want to capture it right where you received it.
 
-## 3. Цели итерации 1
+## 3. Iteration 1 goals
 
-| Цель | Метрика успеха |
+| Goal | Success metric |
 |---|---|
-| Создание события быстрее, чем в родном приложении | < 20 секунд от `/new` до созданного события |
-| Надёжность записи в календарь | 0 «потерянных» событий: либо создано и подтверждено, либо явная ошибка |
-| Управление созданным | Просмотр ближайших событий и удаление прямо из бота |
+| Creating an event faster than in the native app | < 20 seconds from `/new` to a created event |
+| Reliable calendar writes | 0 "lost" events: either created and confirmed, or an explicit error |
+| Managing what was created | Viewing upcoming events and deleting right from the bot |
 
-**Не цели итерации 1:** голосовой ввод, LLM-парсинг, свободный текст без визарда, редактирование существующих событий, повторяющиеся события, приглашение участников, командные/общие календари.
+**Not goals for iteration 1:** voice input, LLM parsing, free text without the wizard, editing existing events, recurring events, inviting attendees, team/shared calendars.
 
-## 4. Пользователи
+## 4. Users
 
-- **Итерация 1:** автор + близкие (5–15 человек). Доступ по allowlist Telegram ID.
-- **Дальше:** потенциально открытый доступ. Архитектура и модель данных проектируются как многопользовательские с самого начала (никаких хардкод-констант под одного человека).
+- **Iteration 1:** the author + close contacts (5-15 people). Access via a Telegram ID allowlist.
+- **Later:** potentially open access. Architecture and data model are designed as multi-user from the start (no hardcoded constants for a single person).
 
-## 5. Пользовательские сценарии
+## 5. User scenarios
 
-### 5.1 Первый запуск (онбординг)
+### 5.1 First launch (onboarding)
 
-1. Пользователь отправляет `/start`.
-2. Бот проверяет allowlist. Если ID не в списке — вежливый отказ.
-3. Бот спрашивает часовой пояс (список популярных кнопками + возможность ввести вручную, напр. `Europe/Warsaw`).
-4. Бот предлагает подключить Google Calendar: OAuth-ссылка → пользователь даёт доступ в браузере → редирект на callback → бот пишет «Google Calendar подключён».
-5. Бот показывает краткую справку и главное меню.
+1. The user sends `/start`.
+2. The bot checks the allowlist. If the ID isn't listed — a polite refusal.
+3. The bot asks for the timezone (a list of popular ones as buttons + the option to enter one manually, e.g. `Europe/Warsaw`).
+4. The bot offers to connect Google Calendar: an OAuth link → the user grants access in the browser → redirect to the callback → the bot says "Google Calendar connected".
+5. The bot shows a brief help message and the main menu.
 
-### 5.2 Создание события (основной сценарий)
+### 5.2 Creating an event (main scenario)
 
-Пошаговый визард. Каждое поле — отдельное сообщение бота и отдельный ответ пользователя.
+A step-by-step wizard. Each field is a separate bot message and a separate user reply.
 
-| Шаг | Бот спрашивает | Пользователь отвечает | Правила |
+| Step | Bot asks | User replies | Rules |
 |---|---|---|---|
-| 1 | Название события | Текст | **Обязательное.** Пусто/только пробелы → переспросить. Максимум 200 символов |
-| 2 | Описание | Текст или кнопка «Пропустить» | Необязательное. Если пропущено — поле в календаре не заполняется вовсе. Максимум 2000 символов |
-| 3 | Дата | Быстрые кнопки «Сегодня»/«Завтра», инлайн-календарь **или** текст `дд/мм/гггг` | Обязательное. Прошедшие даты разрешены, но бот предупреждает |
-| 4 | Тип события | Кнопки «Весь день» / «Указать время» | — |
-| 5а | *(если «Весь день»)* — | — | Событие all-day на выбранную дату |
-| 5б | *(если «Указать время»)* Время начала | Текст `ЧЧ:ММ` | Валидация 00:00–23:59 |
-| 6б | Длительность | Кнопки `30 мин` / `1 ч` / `1.5 ч` / `2 ч` / «Ввести своё» | При «Ввести своё» — текст вида `45м`, `2ч`, `1ч30м`. Переход через полночь разрешён |
-| 7 | Превью | Кнопки «✅ Отправить» / «✏️ Изменить» / «❌ Отменить» | Событие создаётся **только** по кнопке «Отправить» |
+| 1 | Event title | Text | **Required.** Empty/whitespace-only → ask again. Max 200 characters |
+| 2 | Description | Text or a "Skip" button | Optional. If skipped — the field isn't populated in the calendar at all. Max 2000 characters |
+| 3 | Date | Quick buttons "Today"/"Tomorrow", inline calendar, **or** text `dd/mm/yyyy` | Required. Past dates are allowed, but the bot warns |
+| 4 | Event type | Buttons "All day" / "Specify time" | — |
+| 5a | *(if "All day")* — | — | An all-day event on the chosen date |
+| 5b | *(if "Specify time")* Start time | Text `HH:MM` | Validated 00:00-23:59 |
+| 6b | Duration | Buttons `30 min` / `1 h` / `1.5 h` / `2 h` / "Enter custom" | With "Enter custom" — text like `45m`, `2h`, `1h30m`. Crossing midnight is allowed |
+| 7 | Preview | Buttons "✅ Send" / "✏️ Edit" / "❌ Cancel" | The event is created **only** via the "Send" button |
 
-**Превью выглядит так:**
+**The preview looks like this:**
 
 ```
-📋 Проверь событие
+📋 Review the event
 
-Название: Визит к врачу
-Описание: Кабинет 305, взять результаты анализов
-Дата: 14.08.2026 (четверг)
-Время: 15:00 – 16:00 (Europe/Warsaw)
-Напоминание: за 30 минут
-Календарь: Google Calendar
+Title: Doctor's appointment
+Description: Room 305, pick up test results
+Date: 2026-08-14 (Thursday)
+Time: 15:00 – 16:00 (Europe/Warsaw)
+Reminder: 30 minutes before
+Calendar: Google Calendar
 
-[✅ Отправить]  [✏️ Изменить]  [❌ Отменить]
+[✅ Send]  [✏️ Edit]  [❌ Cancel]
 ```
 
-Кнопка «Изменить» открывает список полей — пользователь выбирает, какое поле переспросить, и возвращается к превью.
+The "Edit" button opens a list of fields — the user picks which field to re-answer, then returns to the preview.
 
-После успешного создания: `✅ Событие создано` + краткая карточка + кнопка «🗑 Удалить» (действует на это конкретное событие).
+After a successful creation: `✅ Event created` + a short card + a "🗑 Delete" button (acts on this specific event).
 
-### 5.3 Просмотр и удаление событий
+### 5.3 Viewing and deleting events
 
-Команда `/events` (и пункт в меню бота):
+The `/events` command (and a menu item):
 
-- Показывает ближайшие события на 30 дней вперёд, **созданные через бота**, отсортированные по дате.
-- Постранично, по 5 событий на страницу, кнопки «◀️ Назад» / «Вперёд ▶️».
-- У каждого события кнопка «🗑».
-- Удаление требует подтверждения: «Удалить «Визит к врачу» 14.08 в 15:00?» → «Да, удалить» / «Отмена».
-- Событие удаляется из календаря через API и помечается удалённым в БД.
-- Если событие уже удалено пользователем вручную в календаре — бот сообщает об этом и убирает его из списка без ошибки.
+- Shows upcoming events for the next 30 days, **created via the bot**, sorted by date.
+- Paginated, 5 events per page, "◀️ Back" / "Forward ▶️" buttons.
+- Each event has a "🗑" button.
+- Deletion requires confirmation: "Delete 'Doctor's appointment' on Aug 14 at 15:00?" → "Yes, delete" / "Cancel".
+- The event is deleted from the calendar via the API and marked deleted in the DB.
+- If the event was already deleted manually by the user in the calendar — the bot reports this and removes it from the list without an error.
 
-### 5.4 Настройки
+### 5.4 Settings
 
-Команда `/settings`:
+The `/settings` command:
 
-- Часовой пояс (изменить)
-- Подключить / отключить календарь
-- Удалить все мои данные
+- Timezone (change)
+- Connect / disconnect calendar
+- Delete all my data
 
-## 6. Правила формирования события
+## 6. Event-building rules
 
-| Условие | Результат |
+| Condition | Result |
 |---|---|
-| Есть название, нет описания | Событие с названием, поле description **не отправляется** в API |
-| Выбран «Весь день» | All-day событие на указанную дату (без времени) |
-| Указано время начала + длительность | Событие с точным началом и концом |
-| Длительность выходит за полночь | Событие корректно переходит на следующий день |
-| Название пустое | Визард не пропускает дальше |
-| Часовой пояс | Всегда берётся из настроек пользователя, явно передаётся в API |
-| Напоминание | По умолчанию **за 30 минут** до начала. Для all-day — за 30 минут до 09:00 в день события |
+| Has a title, no description | An event with a title, the description field **is not sent** to the API |
+| "All day" selected | An all-day event on the given date (no time) |
+| Start time + duration given | An event with an exact start and end |
+| Duration crosses midnight | The event correctly rolls over to the next day |
+| Title is empty | The wizard doesn't let you proceed |
+| Timezone | Always taken from the user's settings, explicitly passed to the API |
+| Reminder | Defaults to **30 minutes** before the start. For all-day events — 30 minutes before 09:00 on the event date |
 
-## 7. Команды бота (меню слева)
+## 7. Bot commands (left-side menu)
 
-| Команда | Описание |
+| Command | Description |
 |---|---|
-| `/new` | Создать событие |
-| `/events` | Мои события |
-| `/settings` | Настройки |
-| `/cancel` | Отменить текущий диалог |
-| `/help` | Справка |
-| `/start` | Начало работы / онбординг |
+| `/new` | Create an event |
+| `/events` | My events |
+| `/settings` | Settings |
+| `/cancel` | Cancel the current dialog |
+| `/help` | Help |
+| `/start` | Get started / onboarding |
 
-Команды регистрируются через `setMyCommands`, чтобы отображались в нативном меню Telegram.
+Commands are registered via `setMyCommands` so they show up in Telegram's native menu.
 
-## 8. Хранилище данных
+## 8. Data storage
 
-**Выбор: SQLite-совместимая БД** через Prisma, драйвер `@prisma/adapter-libsql`, хостинг — [Turso](https://turso.tech) (managed libSQL). Изначально (итерация 1) был локальный файл через `better-sqlite3` — заменён на Turso, когда понадобилась независимость от постоянного диска конкретного хоста (см. `docs/02-TECH-SPEC.md` §4, §14).
+**Choice: a SQLite-compatible DB** via Prisma, driver `@prisma/adapter-libsql`, hosted on [Turso](https://turso.tech) (managed libSQL). Originally (iteration 1) this was a local file via `better-sqlite3` — replaced with Turso once we needed independence from a specific host's persistent disk (see `docs/02-TECH-SPEC.md` §4, §14).
 
-Обоснование: под нагрузку итерации 1 — десяток пользователей, десятки записей в день — тяжёлая реляционная СУБД не нужна, а Turso даёт то же нулевое администрирование, что и файловый SQLite, но без привязки к диску конкретного хоста — то, что и делает возможным serverless-деплой (Vercel).
+Rationale: for iteration 1's load — a dozen users, dozens of records a day — a heavyweight relational DBMS isn't needed, and Turso gives the same zero-administration profile as file-based SQLite, but without being tied to a specific host's disk — which is exactly what makes a serverless deploy (Vercel) possible.
 
-| Что храним | Объём |
+| What we store | Volume |
 |---|---|
-| Пользователи и настройки | десятки строк |
-| Подключённые календари | ≤ 1 на пользователя (только Google) |
-| Созданные события (история) | сотни строк в год |
-| Состояние визарда | по одной активной строке на пользователя |
+| Users and settings | tens of rows |
+| Connected calendars | ≤ 1 per user (Google only) |
+| Created events (history) | hundreds of rows per year |
+| Wizard state | one active row per user |
 
-**Ограничения, которые принимаем осознанно:**
+**Limitations we accept deliberately:**
 
-- Prisma под `provider = "sqlite"` не поддерживает нативные enum и требует аккуратности с JSON-полями (детали в техспеке) — это не изменилось при переезде на Turso, схема осталась той же.
+- Prisma under `provider = "sqlite"` doesn't support native enums and requires care with JSON fields (details in the tech spec) — unchanged by the move to Turso, the schema stayed the same.
 
-**Путь миграции на PostgreSQL** (если понадобится то, чего нет у Turso): меняется `provider` в `schema.prisma`, строка подключения и три типа полей. Весь остальной код Prisma не трогается. Заложено на уровне схемы с самого начала — этим же путём мы осознанно не пошли при переезде с локального файла, потому что Turso остаётся SQLite-совместимым и потребовал только смены driver adapter.
+**Migration path to PostgreSQL** (if we ever need something Turso doesn't have): change the `provider` in `schema.prisma`, the connection string, and three field types. The rest of the Prisma code is untouched. This was designed into the schema from day one — and it's the path we deliberately did NOT take when moving off the local file, because Turso stays SQLite-compatible and only required a driver-adapter swap.
 
-**Бэкап:** забота Turso (managed-сервис) — не cron-задача на хосте, как было при локальном файле.
+**Backup:** Turso's (managed service) responsibility — not a cron job on the host, as it was with the local file.
 
-## 9. Требования к качеству
+## 9. Quality requirements
 
-- **Идемпотентность:** повторное нажатие «Отправить» не создаёт дубль (кнопки гасятся сразу после первого нажатия).
-- **Устойчивость состояния:** состояние визарда хранится в БД, а не в памяти процесса. Перезапуск сервера не теряет незавершённый диалог.
-- **Таймаут диалога:** незавершённый визард истекает через 60 минут, бот сообщает об этом.
-- **Ошибки внешних API:** пользователю показывается человекопонятное сообщение и предложение повторить; технические детали пишутся в лог.
-- **Истёкшие токены Google:** автоматический refresh; при невозможности — просьба переподключить календарь.
-- **Ответ на любое действие:** не дольше 3 секунд (для долгих операций — «⏳ Создаю событие…»).
+- **Idempotency:** pressing "Send" twice doesn't create a duplicate (buttons are disabled immediately after the first tap).
+- **State durability:** wizard state is stored in the DB, not in process memory. A server restart doesn't lose an unfinished dialog.
+- **Dialog timeout:** an unfinished wizard expires after 60 minutes, the bot reports this.
+- **External API errors:** the user sees a human-readable message and an offer to retry; technical details go to the log.
+- **Expired Google tokens:** automatic refresh; if that's not possible — ask to reconnect the calendar.
+- **Response to any action:** no longer than 3 seconds (for long operations — "⏳ Creating event…").
 
-## 10. Безопасность и приватность
+## 10. Security and privacy
 
-- Все токены календаря шифруются в БД (AES-256-GCM, ключ из переменной окружения).
-- Allowlist Telegram ID на период закрытого доступа.
-- Rate limiting: не более 30 действий в минуту на пользователя.
-- Бот не читает и не хранит содержимое чужих событий — только те, что создал сам.
-- `/settings → Удалить все мои данные` полностью стирает пользователя, токены и историю событий.
+- All calendar tokens are encrypted in the DB (AES-256-GCM, key from an environment variable).
+- Telegram ID allowlist during the closed-access period.
+- Rate limiting: no more than 30 actions per minute per user.
+- The bot doesn't read or store the content of other people's events — only ones it created itself.
+- `/settings → Delete all my data` fully wipes the user, tokens, and event history.
 
-## 11. Дорожная карта следующих итераций
+## 11. Roadmap for future iterations
 
-| Итерация | Содержание |
+| Iteration | Content |
 |---|---|
-| **2** | Голосовые сообщения: транскрипция + LLM-парсинг в структуру события, тот же превью-экран перед созданием |
-| **2** | Свободный текст одной строкой через LLM («визит к врачу в среду в 15:00 на час») |
-| **3** | Настройка напоминаний в меню: изменить время напоминания, несколько напоминаний, отключить полностью |
-| **3** | Редактирование созданных событий |
-| **4** | Повторяющиеся события (RRULE) |
-| **4** | Двусторонняя синхронизация: показ всех событий календаря, а не только созданных ботом |
-| **5** | Открытый публичный доступ, биллинг/лимиты, локализация (черновик фичи: [`docs/features/01-language-selection.md`](features/01-language-selection.md)) |
+| **2** | Voice messages: transcription + LLM parsing into an event structure, the same preview screen before creation |
+| **2** | Free-text single-line input via LLM ("doctor's appointment Wednesday at 15:00 for an hour") |
+| **3** | Reminder settings in the menu: change reminder time, multiple reminders, turn off entirely |
+| **3** | Editing created events |
+| **4** | Recurring events (RRULE) |
+| **4** | Two-way sync: show all calendar events, not just ones created by the bot |
+| **5** | Open public access, billing/limits, localization (feature draft: [`docs/features/01-language-selection.md`](features/01-language-selection.md)) |
 
-## 12. Процесс документирования фич
+## 12. Feature documentation process
 
-Этот документ описывает **итерацию 1 и остаётся неизменным по сути**. Каждая последующая фича не дописывается в него, а получает собственный короткий PRD.
+This document describes **iteration 1 and stays essentially unchanged**. Every subsequent feature isn't appended to it, but gets its own short PRD.
 
-### 12.1 Правило
+### 12.1 Rule
 
-Одна фича — один файл `docs/features/NN-краткое-имя.md`, где `NN` — сквозной порядковый номер. Основной PRD при этом:
+One feature — one file `docs/features/NN-short-name.md`, where `NN` is a running sequence number. The main PRD:
 
-- **не переписывается** — историю решений по итерации 1 важно сохранить как есть;
-- получает **одну строку в реестре ниже** (раздел 12.3) со ссылкой на файл фичи;
-- правится точечно только в двух случаях: изменился инвариант из раздела 6 «Правила формирования события», или фича закрыла пункт из раздела 11 «Дорожная карта» — тогда строка в дорожной карте помечается ссылкой на реализованную фичу.
+- **is not rewritten** — the record of iteration-1 decisions matters as-is;
+- gets **one line in the registry below** (section 12.3) linking to the feature file;
+- is edited in place only in two cases: an invariant from section 6 "Event-building rules" changed, or a feature closed out an item from section 11 "Roadmap" — in that case the roadmap line gets a link to the shipped feature.
 
-Если фича противоречит чему-то в основном PRD — это правится в основном PRD явно, с пометкой в реестре. Молча расходящихся документов быть не должно.
+If a feature conflicts with something in the main PRD — that's fixed in the main PRD explicitly, with a note in the registry. Silently diverging documents are not allowed.
 
-### 12.2 Что содержит feature-PRD
+### 12.2 What a feature PRD contains
 
-Шаблон лежит в `docs/features/_TEMPLATE.md`. Обязательный минимум — восемь блоков:
+The template lives at `docs/features/_TEMPLATE.md`. Required minimum — eight sections:
 
-| Блок | Назначение |
+| Section | Purpose |
 |---|---|
-| Проблема | Зачем фича, что болит сейчас |
-| Область | Что входит и, отдельным списком, что **не** входит |
-| Сценарии | Пошагово, как у пользователя это выглядит |
-| Тексты бота | Точные формулировки новых сообщений (или ссылка на дополнение к UX-документу) |
-| Изменения данных | Новые поля и модели, нужна ли миграция |
-| Влияние на существующее | Что придётся тронуть в уже написанном коде |
-| Критерии готовности | Проверяемый чеклист |
-| Риски | Что может сломаться, что решили не решать |
+| Problem | Why this feature, what hurts right now |
+| Scope | What's in, and, as a separate list, what's **not** in |
+| Scenarios | Step by step, what it looks like for the user |
+| Bot text | Exact wording of new messages (or a link to a UX-doc addition) |
+| Data changes | New fields and models, whether a migration is needed |
+| Impact on existing code | What needs to be touched in code that's already written |
+| Readiness criteria | A checkable checklist |
+| Risks | What could break, what we decided not to solve |
 
-Целевой объём — одна-две страницы. Feature-PRD, разросшийся до размера основного, — сигнал, что фичу надо разбить на две.
+Target length — one to two pages. A feature PRD that grows to the size of the main one is a signal the feature should be split in two.
 
-### 12.3 Реестр фич
+### 12.3 Feature registry
 
-| № | Фича | Статус | Документ | Затронула основной PRD |
+| # | Feature | Status | Document | Touched the main PRD |
 |---|---|---|---|---|
-| 00 | Итерация 1: визард, Google + iCloud, список и удаление | Готово (23.07.2026) | этот документ | — |
-| 01 | Вибір мови інтерфейсу (укр/англ) | Черновик (24.07.2026) | `docs/features/01-language-selection.md` | см. §11, итерация 5 |
-| 02 | Удаление iCloud/CalDAV — остаётся только Google | Готово (31.07.2026) | этот документ | да, §1, §3, §5, §6, §10 правлены напрямую: убрана поддержка второго провайдера, ≤1 календаря на пользователя |
+| 00 | Iteration 1: wizard, Google + iCloud, list and delete | Done (2026-07-23) | this document | — |
+| 01 | Interface language selection (uk/en) | Draft (2026-07-24) | `docs/features/01-language-selection.md` | see §11, iteration 5 |
+| 02 | Removed iCloud/CalDAV — Google only remains | Done (2026-07-31) | this document | yes, §1, §3, §5, §6, §10 edited directly: dropped support for a second provider, ≤1 calendar per user |
 
-Строка добавляется в момент старта работы над фичей, а не после — так реестр отражает реальное состояние, а не только завершённое.
+A row is added the moment work on a feature starts, not after — so the registry reflects the real state, not just what's finished.
 
-### 12.4 Порядок работы
+### 12.4 Workflow
 
-1. Появилась идея фичи → создать файл из шаблона, заполнить блоки «Проблема» и «Область».
-2. Добавить строку в реестр 12.3 со статусом «Черновик».
-3. Обсудить и дозаполнить остальные блоки → статус «Готово к разработке».
-4. Реализация → статус «В разработке».
-5. Выкатили → статус «Готово», проставить дату. При необходимости обновить дорожную карту и техспек.
+1. A feature idea comes up → create a file from the template, fill in the "Problem" and "Scope" sections.
+2. Add a row to the registry in 12.3 with status "Draft".
+3. Discuss and fill in the remaining sections → status "Ready for development".
+4. Implementation → status "In progress".
+5. Shipped → status "Done", record the date. Update the roadmap and tech spec if needed.
 
-Статусы: `Черновик` → `Готово к разработке` → `В разработке` → `Готово` (либо `Отклонено` с одной строкой обоснования — отвергнутые идеи тоже стоит хранить, чтобы не возвращаться к ним по кругу).
+Statuses: `Draft` → `Ready for development` → `In progress` → `Done` (or `Rejected` with a one-line rationale — rejected ideas are worth keeping too, so we don't circle back to them).
 
-## 13. Открытые вопросы
+## 13. Open questions
 
-- Нужен ли вебхук-домен с валидным TLS-сертификатом сразу, или на старте достаточно long polling? *(рекомендация: long polling для локальной разработки, webhook в проде)*
-- Хостинг: Vercel (serverless) — решено, требования описаны в техспеке §14.
+- Do we need a webhook domain with a valid TLS certificate right away, or is long polling enough at the start? *(recommendation: long polling for local development, webhook in prod)*
+- Hosting: Vercel (serverless) — decided, requirements described in the tech spec §14.

@@ -1,77 +1,77 @@
-# Промпт для кодинг-агента (Claude Code / Cursor)
+# Prompt for a coding agent (Claude Code / Cursor)
 
-> Скопировать целиком в кодинг-агента. Файлы `01-PRD.md`, `02-TECH-SPEC.md`, `03-BOT-UX.md` должны лежать в корне репозитория — агент обращается к ним за деталями.
+> Copy this whole thing into a coding agent. The files `01-PRD.md`, `02-TECH-SPEC.md`, `03-BOT-UX.md` must live at the repo root — the agent reads them for details.
 
 ---
 
-## Промпт
+## Prompt
 
-Ты — senior Node.js разработчик. Собери с нуля production-ready Telegram-бота для создания событий в календаре.
+You are a senior Node.js developer. Build a production-ready Telegram bot for creating calendar events, from scratch.
 
-Полные требования лежат в репозитории: `01-PRD.md` (продуктовые требования), `02-TECH-SPEC.md` (архитектура, схема БД, интеграции), `03-BOT-UX.md` (точные тексты всех сообщений). **Прочитай все три перед началом работы и следуй им буквально — особенно текстам сообщений из UX-документа.**
+Full requirements live in the repo: `01-PRD.md` (product requirements), `02-TECH-SPEC.md` (architecture, DB schema, integrations), `03-BOT-UX.md` (exact text of every message). **Read all three before starting and follow them literally — especially the message text from the UX document.**
 
-### Стек (не заменять на альтернативы)
+### Stack (do not swap for alternatives)
 
 Node.js 20 · TypeScript strict · Express 4 · grammY (+ `@grammyjs/conversations`) · SQLite + Prisma · Luxon · googleapis · tsdav + ical-generator · Zod · Pino · Vitest
 
-### Что делает бот (кратко)
+### What the bot does (brief)
 
-Пошаговый визард создаёт событие в Google Calendar или Apple iCloud: название (обязательное) → описание (опциональное) → дата (инлайн-календарь) → весь день / конкретное время → время начала → длительность → превью → подтверждение → создание. Плюс просмотр и удаление созданных событий, настройки таймзоны и календаря по умолчанию.
+A step-by-step wizard creates an event in Google Calendar or Apple iCloud: title (required) → description (optional) → date (inline calendar) → all day / specific time → start time → duration → preview → confirmation → creation. Plus viewing and deleting created events, timezone settings, and a default calendar.
 
-### Критичные правила реализации
+### Critical implementation rules
 
-1. **Описание опционально.** Если пользователь его пропустил, поле `description` **не должно попадать в payload** к API вообще — не пустая строка, не `null`, а отсутствующий ключ.
-2. **Название обязательно.** Пустое или из одних пробелов — не пропускать дальше, переспрашивать.
-3. **All-day в Google:** `end.date` эксклюзивен — для однодневного события это дата + 1 день. Это классическая ошибка, не допусти её.
-4. **Таймзона всегда явная.** Никогда не полагайся на таймзону сервера. Все расчёты через Luxon с зоной пользователя, хранение в БД в UTC, отображение — в зоне пользователя.
-5. **Переход через полночь.** Начало 23:30 + 60 минут = конец 00:30 следующего дня. Покрой тестом.
-6. **Событие создаётся только по кнопке «Отправить».** Кнопки гаснут сразу после первого нажатия (редактированием разметки сообщения) — двойной тап не должен создать дубль.
-7. **Состояние визарда — в БД,** не в памяти процесса. Реализуй персистентный storage-адаптер для `@grammyjs/conversations` на модели `WizardSession`. Перезапуск сервера не теряет незаконченный диалог. TTL 60 минут.
-8. **Секреты шифруются.** Google refresh/access-токены и iCloud app-password — AES-256-GCM с ключом из `ENCRYPTION_KEY`. Никогда не попадают в логи.
-9. **Сообщение с паролем iCloud удаляется** через `ctx.api.deleteMessage` сразу после обработки.
-10. **Мультипользовательская модель с первого дня.** Никаких хардкод-констант под одного человека — доступ ограничивается allowlist-middleware по `ALLOWLIST_TELEGRAM_IDS`, но данные всегда привязаны к `userId`.
-11. **Провайдеры за единым интерфейсом.** `GoogleCalendarProvider` и `CalDavProvider` реализуют один контракт `CalendarProvider` (см. техспек). Хендлеры бота не знают, какой провайдер используется.
-12. **Напоминание по умолчанию 30 минут** — из `DEFAULT_REMINDER_MINUTES`, хранится в `User.defaultReminder`. В итерации 1 не редактируется через UI, но модель данных и сервисный слой должны это уже поддерживать, чтобы в итерации 3 добавить только экран настроек.
-13. **Ошибки не показывают stack trace.** Пользователю — человекопонятное сообщение по таблице из техспека, в Pino — полная техническая картина с `userId` и `requestId`.
-14. **Валидация env через Zod при старте.** Не хватает переменной — процесс падает с внятным сообщением, а не ломается в рантайме.
+1. **Description is optional.** If the user skipped it, the `description` field **must not end up in the API payload** at all — not an empty string, not `null`, but a missing key.
+2. **Title is required.** Empty or whitespace-only — don't let it through, ask again.
+3. **All-day in Google:** `end.date` is exclusive — for a one-day event that's date + 1 day. This is a classic mistake, don't make it.
+4. **Timezone is always explicit.** Never rely on the server's timezone. All calculations via Luxon with the user's zone, stored in the DB in UTC, displayed in the user's zone.
+5. **Crossing midnight.** Start 23:30 + 60 minutes = end 00:30 the next day. Cover it with a test.
+6. **An event is created only via the "Send" button.** Buttons are disabled immediately after the first tap (by editing the message's markup) — a double tap must not create a duplicate.
+7. **Wizard state lives in the DB,** not in process memory. Implement a persistent storage adapter for `@grammyjs/conversations` on the `WizardSession` model. A server restart doesn't lose an unfinished dialog. TTL 60 minutes.
+8. **Secrets are encrypted.** Google refresh/access tokens and the iCloud app password — AES-256-GCM with a key from `ENCRYPTION_KEY`. Never end up in logs.
+9. **The message containing the iCloud password is deleted** via `ctx.api.deleteMessage` right after processing.
+10. **Multi-user model from day one.** No hardcoded constants for a single person — access is restricted by allowlist middleware on `ALLOWLIST_TELEGRAM_IDS`, but data is always tied to `userId`.
+11. **Providers behind a single interface.** `GoogleCalendarProvider` and `CalDavProvider` implement one `CalendarProvider` contract (see tech spec). The bot's handlers don't know which provider is in use.
+12. **Default reminder is 30 minutes** — from `DEFAULT_REMINDER_MINUTES`, stored in `User.defaultReminder`. Not editable via UI in iteration 1, but the data model and service layer should already support it, so iteration 3 only needs to add a settings screen.
+13. **Errors never show a stack trace.** The user gets a human-readable message per the table in the tech spec; Pino gets the full technical picture with `userId` and `requestId`.
+14. **Env validation via Zod at startup.** A missing variable — the process fails with a clear message instead of breaking at runtime.
 
-### Порядок работы
+### Workflow
 
-Делай по этапам, после каждого — рабочий коммит.
+Work in stages, with a working commit after each one.
 
-1. Каркас: TypeScript, Express, grammY, Pino, Zod-конфиг, `/healthz`, Docker, `.env.example`
-2. Prisma-схема и первая миграция (модели из техспека; SQLite: без enum, JSON строкой, WAL + busy_timeout)
+1. Skeleton: TypeScript, Express, grammY, Pino, Zod config, `/healthz`, Docker, `.env.example`
+2. Prisma schema and first migration (models from the tech spec; SQLite: no enums, JSON as a string, WAL + busy_timeout)
 3. Middleware: allowlist, rate limit, userContext, error handler
-4. Онбординг: `/start`, выбор таймзоны, ветвление на подключение календаря
-5. Google OAuth: роуты Express, `TokenService` с шифрованием и refresh
-6. CalDAV: подключение, `testConnection`, удаление сообщения с паролем
-7. `CalendarProvider` + оба провайдера + `CalendarService` + `eventBuilder`
-8. Инлайн-календарь (собственный компонент, без внешних либ)
-9. Визард `/new` целиком, включая «Изменить» и превью
-10. `/events` с пагинацией и удалением
+4. Onboarding: `/start`, timezone selection, branching into calendar connection
+5. Google OAuth: Express routes, `TokenService` with encryption and refresh
+6. CalDAV: connection, `testConnection`, deleting the password message
+7. `CalendarProvider` + both providers + `CalendarService` + `eventBuilder`
+8. Inline calendar (a custom component, no external libs)
+9. The full `/new` wizard, including "Edit" and the preview
+10. `/events` with pagination and deletion
 11. `/settings`
-12. Тесты: парсеры, datetime, eventBuilder, провайдеры с моками HTTP
-13. README: локальный запуск, получение Google OAuth credentials, создание Apple app-password, деплой
+12. Tests: parsers, datetime, eventBuilder, providers with mocked HTTP
+13. README: running locally, getting Google OAuth credentials, creating an Apple app password, deployment
 
 ### Definition of Done
 
-- `npm run dev` поднимает бота в режиме polling без ошибок
-- `npm run build && npm start` работает в webhook-режиме
-- `npm test` — зелёный, покрыты все кейсы из раздела «Логика дат и времени» техспека
-- Событие с описанием и без — оба корректно создаются в Google и в iCloud
-- All-day событие занимает ровно один день в обоих календарях
-- Удаление из `/events` реально удаляет событие в календаре
-- Перезапуск процесса посреди визарда не теряет введённые данные
-- Все тексты сообщений совпадают с `03-BOT-UX.md`
-- `.env.example` содержит все переменные с комментариями
-- README позволяет человеку с нуля поднять проект локально
+- `npm run dev` brings the bot up in polling mode with no errors
+- `npm run build && npm start` works in webhook mode
+- `npm test` is green, covering every case from the "Date and time logic" section of the tech spec
+- An event with a description and without both create correctly in Google and in iCloud
+- An all-day event takes up exactly one day in both calendars
+- Deleting from `/events` actually deletes the event in the calendar
+- Restarting the process mid-wizard doesn't lose the entered data
+- Every message's text matches `03-BOT-UX.md`
+- `.env.example` has every variable with comments
+- README lets someone stand the project up locally from scratch
 
-### Что НЕ делать в этой итерации
+### What NOT to do in this iteration
 
-Голосовые сообщения, LLM-парсинг, парсинг свободного текста, редактирование созданных событий, повторяющиеся события, приглашение участников, чтение чужих событий из календаря, локализация. Но архитектуру строй так, чтобы это добавлялось без переписывания: слой парсинга ввода изолирован от слоя создания события — в итерации 2 рядом со «строгим» визардом встанет LLM-парсер, отдающий тот же `EventDraft` на тот же экран превью.
+Voice messages, LLM parsing, free-text parsing, editing created events, recurring events, inviting attendees, reading other people's calendar events, localization. But build the architecture so these can be added without a rewrite: the input-parsing layer is isolated from the event-creation layer — in iteration 2 an LLM parser will sit next to the "strict" wizard, handing off the same `EventDraft` to the same preview screen.
 
 ---
 
-## Дополнительный промпт для итерации 2 (сохрани на потом)
+## Extra prompt for iteration 2 (save this for later)
 
-> Добавь в существующего бота обработку голосовых сообщений. Поток: пользователь шлёт voice → скачиваем файл через Telegram API → транскрибируем (Whisper API) → отправляем текст в LLM с промптом, требующим вернуть строгий JSON по схеме `EventDraft` → валидируем через Zod → показываем **тот же самый экран превью**, что и в визарде, с кнопками «Отправить» / «Изменить» / «Отменить». Если LLM не смог определить обязательное поле (название) или дату — бот дозапрашивает недостающее через шаги существующего визарда. Текущая дата и таймзона пользователя передаются в промпт LLM для корректного разрешения относительных дат («в среду», «завтра»). Ничего не создаётся без подтверждения пользователем.
+> Add voice-message handling to the existing bot. Flow: the user sends a voice message → download the file via the Telegram API → transcribe it (Whisper API) → send the text to an LLM with a prompt that requires returning strict JSON matching the `EventDraft` schema → validate with Zod → show **the exact same preview screen** as the wizard, with "Send" / "Edit" / "Cancel" buttons. If the LLM couldn't determine a required field (title) or the date — the bot asks for the missing piece via the existing wizard's steps. The user's current date and timezone are passed into the LLM prompt so it can correctly resolve relative dates ("on Wednesday", "tomorrow"). Nothing is created without the user's confirmation.

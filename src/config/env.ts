@@ -12,24 +12,24 @@ const envSchema = z
     PORT: z.coerce.number().int().positive().default(3000),
     BASE_URL: z.string().url(),
 
-    TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN обязателен"),
+    TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
     TELEGRAM_WEBHOOK_SECRET: z.string().optional(),
     BOT_MODE: z.enum(["webhook", "polling"]),
 
-    TURSO_DATABASE_URL: z.string().min(1, "TURSO_DATABASE_URL обязателен"),
-    TURSO_AUTH_TOKEN: z.string().min(1, "TURSO_AUTH_TOKEN обязателен"),
+    TURSO_DATABASE_URL: z.string().min(1, "TURSO_DATABASE_URL is required"),
+    TURSO_AUTH_TOKEN: z.string().min(1, "TURSO_AUTH_TOKEN is required"),
 
     ENCRYPTION_KEY: z
       .string()
-      .regex(/^[0-9a-fA-F]{64}$/, "ENCRYPTION_KEY должен быть 32 байтами в hex (64 символа)"),
+      .regex(/^[0-9a-fA-F]{64}$/, "ENCRYPTION_KEY must be 32 bytes in hex (64 characters)"),
 
-    GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID обязателен"),
-    GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET обязателен"),
+    GOOGLE_CLIENT_ID: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
+    GOOGLE_CLIENT_SECRET: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
     GOOGLE_REDIRECT_URI: z.string().url(),
 
     ALLOWLIST_TELEGRAM_IDS: z
       .string()
-      .min(1, "ALLOWLIST_TELEGRAM_IDS обязателен")
+      .min(1, "ALLOWLIST_TELEGRAM_IDS is required")
       .transform((value) =>
         value
           .split(",")
@@ -47,7 +47,7 @@ const envSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["TELEGRAM_WEBHOOK_SECRET"],
-        message: "TELEGRAM_WEBHOOK_SECRET обязателен, когда BOT_MODE=webhook",
+        message: "TELEGRAM_WEBHOOK_SECRET is required when BOT_MODE=webhook",
       });
     }
   });
@@ -55,7 +55,7 @@ const envSchema = z
 const parsed = envSchema.safeParse(process.env);
 
 if (!parsed.success) {
-  console.error("Некорректная конфигурация окружения:");
+  console.error("Invalid environment configuration:");
   for (const issue of parsed.error.issues) {
     console.error(`  ${issue.path.join(".")}: ${issue.message}`);
   }

@@ -47,7 +47,7 @@ export function createApp(): Express {
   app.use('/oauth/google', oauthGoogleRouter);
 
   app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
-    logger.error({ err, requestId: req.id }, 'Необработанная ошибка Express');
+    logger.error({ err, requestId: req.id }, 'Unhandled Express error');
     res.status(500).json({ error: 'internal_error' });
   });
 

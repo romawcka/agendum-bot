@@ -65,12 +65,12 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
     const { tokens } = await client.getToken(code);
 
     if (!tokens.access_token || !tokens.refresh_token || !tokens.expiry_date) {
-      throw new Error("Google не вернул полный набор токенов (нужен refresh_token — проверь prompt=consent)");
+      throw new Error("Google didn't return a full set of tokens (need refresh_token — check prompt=consent)");
     }
 
     const user = await prisma.user.findUnique({ where: { telegramId: oauthState.telegramId } });
     if (!user) {
-      throw new Error(`Пользователь с telegramId=${oauthState.telegramId} не найден`);
+      throw new Error(`User with telegramId=${oauthState.telegramId} not found`);
     }
 
     const encrypted = encryptGoogleTokens({
@@ -101,7 +101,7 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
     await bot.api.sendMessage(oauthState.telegramId.toString(), "✅ Google Calendar підключено.");
     res.send(SUCCESS_PAGE);
   } catch (err) {
-    logger.error({ err }, "Ошибка при обработке Google OAuth callback");
+    logger.error({ err }, "Error handling Google OAuth callback");
     res.status(500).send(GENERIC_ERROR_PAGE);
   }
 });
