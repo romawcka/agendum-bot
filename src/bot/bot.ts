@@ -62,6 +62,12 @@ bot.callbackQuery("menu:new", menuNewCallback);
 bot.callbackQuery("menu:events", menuEventsCallback);
 bot.callbackQuery("menu:settings", menuSettingsCallback);
 bot.callbackQuery("menu:start", menuStartCallback);
+// Reaches here only if no live conversation caught it — the wizard that showed this
+// button already finished (sent/cancelled) or its 60-minute WizardSession TTL expired.
+bot.callbackQuery("wizard:calendar_connected", async (ctx) => {
+  await ctx.answerCallbackQuery();
+  await ctx.reply("Ця подія вже неактуальна. Почни заново: /new");
+});
 
 bot.on("message:text", fallbackTextHandler);
 

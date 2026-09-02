@@ -28,7 +28,8 @@ function fakeAccount(overrides: Partial<CalendarAccount> = {}): CalendarAccount 
   return {
     id: 1,
     userId: 1,
-    label: "Google Calendar",
+    googleAccountId: "google-sub-1",
+    label: "user@gmail.com",
     externalId: "primary",
     accessToken: "enc-access",
     refreshToken: "enc-refresh",

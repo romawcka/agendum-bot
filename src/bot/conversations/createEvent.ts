@@ -14,6 +14,8 @@ import type { BotContext } from "../context.js";
 import { buildConfirmKeyboard, buildRetryKeyboard, buildSuccessKeyboard } from "../keyboards/confirmKeyboard.js";
 import { buildCalendarKeyboard, parseCalendarCallback } from "../keyboards/calendarPicker.js";
 import { buildDurationKeyboard } from "../keyboards/durationKeyboard.js";
+import { listActiveAccounts, resolveDefaultAccount } from "../../services/CalendarAccountService.js";
+import { connectGoogleCalendar } from "./connectGoogle.js";
 
 type WizardConversation = Conversation<BotContext, Context>;
 
@@ -295,12 +297,12 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
   }
 }
 
-type EditField = "title" | "description" | "date" | "time" | "duration" | "back";
+type EditField = "title" | "description" | "date" | "time" | "duration" | "calendar" | "back";
 
 async function collectEditField(
   conversation: WizardConversation,
   ctx: Context,
-  opts: { allDay: boolean },
+  opts: { allDay: boolean; showCalendarOption: boolean },
 ): Promise<Cancellable<EditField>> {
   const keyboard = new InlineKeyboard()
     .text("Назва", "edit:title")
@@ -312,6 +314,9 @@ async function collectEditField(
   if (!opts.allDay) {
     keyboard.text("Час", "edit:time").row().text("Тривалість", "edit:duration").row();
   }
+  if (opts.showCalendarOption) {
+    keyboard.text("📅 Календар", "edit:calendar").row();
+  }
   keyboard.text("⬅️ Назад до перегляду", "edit:back");
 
   await ctx.reply("Що поміняти?", { reply_markup: keyboard });
@@ -322,6 +327,74 @@ async function collectEditField(
     if (update.kind === "callback" && update.data.startsWith("edit:")) {
       return update.data.slice("edit:".length) as EditField;
     }
+  }
+}
+
+/** Per-event override of which connected Google account this event goes into — the user's default is unaffected. */
+async function collectAccountOverride(
+  conversation: WizardConversation,
+  ctx: Context,
+  accounts: CalendarAccount[],
+): Promise<Cancellable<CalendarAccount>> {
+  let keyboard = new InlineKeyboard();
+  accounts.forEach((acc, i) => {
+    if (i > 0) keyboard = keyboard.row();
+    keyboard = keyboard.text(acc.label, `edit:calacct:${acc.id}`);
+  });
+  await ctx.reply("Який календар використати для цієї події?", { reply_markup: withCancel(keyboard) });
+
+  for (;;) {
+    const update = await nextStepUpdate(conversation);
+    if (update.kind === "cancel") return CANCEL;
+    if (update.kind !== "callback" || !update.data.startsWith("edit:calacct:")) continue;
+
+    const id = Number(update.data.slice("edit:calacct:".length));
+    const chosen = accounts.find((a) => a.id === id);
+    if (chosen) return chosen;
+  }
+}
+
+function reviveAccountDates(raw: CalendarAccount): CalendarAccount {
+  return { ...raw, expiresAt: raw.expiresAt ? new Date(raw.expiresAt) : null, createdAt: new Date(raw.createdAt) };
+}
+
+/** Re-fetches the account fresh from the DB, reviving the JSON-degraded Date fields (see the comment in createEvent). */
+async function fetchAccount(conversation: WizardConversation, userId: number): Promise<CalendarAccount | null> {
+  const rawAccount = await conversation.external(() => resolveDefaultAccount(userId));
+  return rawAccount ? reviveAccountDates(rawAccount) : null;
+}
+
+/** Re-fetches one specific account by id — used to re-validate a per-event "Calendar" override at submission time. */
+async function fetchAccountById(conversation: WizardConversation, id: number): Promise<CalendarAccount | null> {
+  const rawAccount = await conversation.external(() => prisma.calendarAccount.findUnique({ where: { id } }));
+  return rawAccount ? reviveAccountDates(rawAccount) : null;
+}
+
+/** Fresh list of active accounts, date-revived (see the JSON-replay comment in createEvent) — used by the "Calendar" edit override. */
+async function fetchActiveAccounts(conversation: WizardConversation, userId: number): Promise<CalendarAccount[]> {
+  const raw = await conversation.external(() => listActiveAccounts(userId));
+  return raw.map(reviveAccountDates);
+}
+
+/**
+ * Blocks right before the event is actually written to Google — the only point a
+ * connected calendar is truly required (see feature 03: everything up to here works
+ * with no calendar connected at all). Shows the connect link and waits, in place,
+ * inside the wizard's own conversation, so the caller can just re-fetch the account
+ * and loop back to the preview screen — nothing collected so far is lost or re-asked.
+ */
+async function waitForCalendarConnection(conversation: WizardConversation, ctx: Context): Promise<Cancellable<"connected">> {
+  await ctx.reply("Щоб надіслати подію, спочатку підключи Google Calendar:");
+  await connectGoogleCalendar(conversation, ctx, { resumeWizard: true });
+
+  for (;;) {
+    const update = await nextStepUpdate(conversation);
+    if (update.kind === "cancel") return CANCEL;
+    if (update.kind === "callback") {
+      if (update.data === "wizard:calendar_connected") return "connected";
+      continue;
+    }
+    await ctx.reply("Спочатку підключи календар, натиснувши кнопку вище, або натисни «Скасувати».");
   }
 }
 
@@ -364,7 +437,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   // from that stored JSON, not a fresh Prisma query.
   const { user, account: rawAccount } = await conversation.external(async () => {
     const dbUser = await prisma.user.findUniqueOrThrow({ where: { telegramId: BigInt(telegramId) } });
-    const calendarAccount = await prisma.calendarAccount.findUnique({ where: { userId: dbUser.id } });
+    const calendarAccount = await resolveDefaultAccount(dbUser.id);
     return {
       user: {
         id: dbUser.id,
@@ -374,20 +447,8 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
       account: calendarAccount,
     };
   });
-  const account: CalendarAccount | null = rawAccount
-    ? {
-        ...rawAccount,
-        expiresAt: rawAccount.expiresAt ? new Date(rawAccount.expiresAt) : null,
-        createdAt: new Date(rawAccount.createdAt),
-      }
-    : null;
+  let account: CalendarAccount | null = rawAccount ? reviveAccountDates(rawAccount) : null;
 
-  if (!account || !account.isActive) {
-    await ctx.reply("Спочатку підключи календар:", {
-      reply_markup: new InlineKeyboard().text("Налаштування", "menu:settings"),
-    });
-    return;
-  }
   const timezone = user.timezone;
   if (!timezone) {
     await ctx.reply("Спочатку заверши налаштування часового поясу:", {
@@ -427,8 +488,12 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   }
 
   // Preview + "Edit" + "Send"/"Cancel"
+  // Set once the user explicitly picks a "Calendar" override in the Edit menu — from then
+  // on the submit-time refresh re-validates *that* account instead of silently replacing
+  // it with the resolved default (see fetchAccountById below).
+  let accountOverridden = false;
   for (;;) {
-    await ctx.reply(formatPreview(toPreviewDraft(draft, reminderMinutes), timezone, account.label), {
+    await ctx.reply(formatPreview(toPreviewDraft(draft, reminderMinutes), timezone, account?.label ?? "не підключено"), {
       reply_markup: buildConfirmKeyboard(),
     });
 
@@ -442,11 +507,20 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     }
 
     if (action.data === "wizard:edit") {
-      const field = await collectEditField(conversation, ctx, { allDay: draft.allDay });
+      const activeAccounts = await fetchActiveAccounts(conversation, user.id);
+      const field = await collectEditField(conversation, ctx, {
+        allDay: draft.allDay,
+        showCalendarOption: activeAccounts.length >= 2,
+      });
       if (field === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
       if (field === "back") continue;
 
-      if (field === "title") {
+      if (field === "calendar") {
+        const chosen = await collectAccountOverride(conversation, ctx, activeAccounts);
+        if (chosen === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
+        account = chosen;
+        accountOverridden = true;
+      } else if (field === "title") {
         const result = await collectTitle(conversation, ctx);
         if (result === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
         draft.title = result;
@@ -471,23 +545,41 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     }
 
     if (action.data === "wizard:submit") {
+      // Re-fetch fresh — the cached `account` may be stale (connected/disconnected/
+      // deactivated by a token refresh since the wizard started or since the last loop).
+      // An explicit per-event override (accountOverridden) is re-validated by id instead
+      // of being silently replaced by the resolved default.
+      account = accountOverridden && account ? await fetchAccountById(conversation, account.id) : await fetchAccount(conversation, user.id);
+      if (!account || !account.isActive) {
+        accountOverridden = false; // fell through to the generic connect flow — trust the default resolution from here on
+        const connection = await waitForCalendarConnection(conversation, ctx);
+        if (connection === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
+        account = await fetchAccount(conversation, user.id);
+        continue; // back to the preview screen — now with the real calendar name
+      }
       break;
     }
   }
 
   // Submission — buttons disabled, with retry on error (invariant 6, tech spec §12)
+  // The preview loop above only breaks once `account` is confirmed connected; narrow
+  // it into its own const so the compiler (and every read below) sees it as non-null.
+  if (!account) {
+    throw new Error("unreachable: account missing after the preview loop confirmed a connection");
+  }
+  const connectedAccount = account;
   const eventDraft = toEventDraft(draft, timezone, reminderMinutes);
 
   for (;;) {
     await ctx.reply("⏳ Створюю подію…");
 
     try {
-      const created = await GoogleCalendarProvider.createEvent(account, eventDraft);
+      const created = await GoogleCalendarProvider.createEvent(connectedAccount, eventDraft);
       const savedEvent = await conversation.external(() =>
         prisma.event.create({
           data: {
             userId: user.id,
-            accountId: account.id,
+            accountId: connectedAccount.id,
             externalId: created.externalId,
             title: draft.title,
             description: draft.description,
@@ -507,7 +599,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
       );
       invalidate(user.id);
 
-      await ctx.reply(formatSuccessCard(toPreviewDraft(draft, reminderMinutes), timezone, account.label), {
+      await ctx.reply(formatSuccessCard(toPreviewDraft(draft, reminderMinutes), timezone, connectedAccount.label), {
         reply_markup: buildSuccessKeyboard(savedEvent.id),
       });
       return;

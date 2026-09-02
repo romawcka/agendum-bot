@@ -137,26 +137,35 @@ model User {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  account           CalendarAccount?
+  accounts          CalendarAccount[] @relation("UserAccounts")
+  defaultAccountId  Int?
+  defaultAccount    CalendarAccount?  @relation("UserDefaultAccount", fields: [defaultAccountId], references: [id], onDelete: SetNull)
   events            Event[]
   session           WizardSession?
 }
 
-// Google only (iCloud/CalDAV removed) — at most one account per
-// user, hence userId @unique instead of the composite [userId, provider].
+// Google only, but multiple accounts (different logins) per user — see
+// docs/features/04-multiple-google-accounts.md. googleAccountId is Google's
+// "sub", the dedup key on reconnect; nullable for rows created before that
+// feature shipped (identity wasn't requested yet — resolved in place on the
+// user's next reconnect, see src/routes/oauthGoogle.ts).
 model CalendarAccount {
-  id            Int       @id @default(autoincrement())
-  userId        Int       @unique
-  label         String                    // "Google Calendar"
-  externalId    String                    // calendarId
-  accessToken   String?                   // encrypted
-  refreshToken  String?                   // encrypted
-  expiresAt     DateTime?
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  googleAccountId String?                   // Google "sub"; null for legacy rows
+  label           String                    // the account's Google email, e.g. "user@gmail.com"
+  externalId      String                    // calendarId, always "primary" today
+  accessToken     String?                   // encrypted
+  refreshToken    String?                   // encrypted
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
 
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events        Event[]
+  user            User      @relation("UserAccounts", fields: [userId], references: [id], onDelete: Cascade)
+  defaultFor      User[]    @relation("UserDefaultAccount")
+  events          Event[]
+
+  @@unique([userId, googleAccountId])
 }
 
 model Event {
@@ -191,9 +200,10 @@ model WizardSession {
 }
 
 model OAuthState {
-  state       String   @id          // random nonce
-  telegramId  BigInt
-  expiresAt   DateTime
+  state         String   @id          // random nonce
+  telegramId    BigInt
+  expiresAt     DateTime
+  resumeWizard  Boolean  @default(false) // generated mid-/new — offer "Continue" after connecting (feature 03)
 }
 
 // No enums: SQLite doesn't support them.
@@ -204,12 +214,12 @@ model OAuthState {
 
 ## 5. Integration: Google Calendar
 
-**Scopes:** `https://www.googleapis.com/auth/calendar.events`
+**Scopes:** `https://www.googleapis.com/auth/calendar.events`, `https://www.googleapis.com/auth/userinfo.email` — the second identifies *which* Google account was connected (`google.oauth2("v2").userinfo.get()`), needed to support more than one per user (feature 04).
 
 **OAuth flow:**
 1. The user taps "Connect Google" → the bot generates a nonce, writes it to `OAuthState` (TTL 10 min), returns a link to `/oauth/google/start?state=<nonce>`.
-2. Express redirects to the Google consent screen with `access_type=offline`, `prompt=consent` (to guarantee getting a refresh_token).
-3. The `/oauth/google/callback` checks the state, exchanges the code for tokens, encrypts and saves them, sends the user a success message in Telegram, and shows a simple "You can go back to Telegram" page in the browser.
+2. Express redirects to the Google consent screen with `access_type=offline`, `prompt=consent` (to guarantee getting a refresh_token). No `login_hint` is set, so Google's own account chooser lets the user pick a different login when connecting an additional account.
+3. The `/oauth/google/callback` checks the state, exchanges the code for tokens, fetches the account's Google id/email, encrypts and saves the tokens against that identity (`CalendarAccount`, keyed by `[userId, googleAccountId]` — a different login creates a new row, the same login refreshes the existing one), sends the user a success message in Telegram, and shows a simple "You can go back to Telegram" page in the browser. The first account a user ever connects becomes their `User.defaultAccountId`.
 
 **Creating an event:**
 

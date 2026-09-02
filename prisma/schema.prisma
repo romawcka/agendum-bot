@@ -21,18 +21,23 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  account CalendarAccount?
-  events  Event[]
-  session WizardSession?
+  accounts         CalendarAccount[] @relation("UserAccounts")
+  defaultAccountId Int?
+  defaultAccount   CalendarAccount?  @relation("UserDefaultAccount", fields: [defaultAccountId], references: [id], onDelete: SetNull)
+  events           Event[]
+  session          WizardSession?
 }
 
-// Только Google (iCloud/CalDAV убраны) — не более одного аккаунта на
-// пользователя, отсюда userId @unique вместо составного [userId, provider].
+// Только Google, но несколько аккаунтов (разных логинов) на пользователя —
+// см. docs/features/04-multiple-google-accounts.md. googleAccountId — Google
+// "sub", ключ дедупликации при повторном подключении; nullable для строк,
+// созданных до этой фичи (identity ещё не запрашивался).
 model CalendarAccount {
-  id         Int    @id @default(autoincrement())
-  userId     Int    @unique
-  label      String // "Google Calendar"
-  externalId String // calendarId
+  id              Int     @id @default(autoincrement())
+  userId          Int
+  googleAccountId String? // Google "sub"; null у legacy-записей до реконнекта
+  label           String // email аккаунта Google, напр. "user@gmail.com"
+  externalId      String // calendarId, сейчас всегда "primary"
 
   accessToken  String? // зашифровано
   refreshToken String? // зашифровано
@@ -40,8 +45,11 @@ model CalendarAccount {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  events Event[]
+  user       User    @relation("UserAccounts", fields: [userId], references: [id], onDelete: Cascade)
+  defaultFor User[]  @relation("UserDefaultAccount")
+  events     Event[]
+
+  @@unique([userId, googleAccountId])
 }
 
 model Event {
@@ -76,9 +84,10 @@ model WizardSession {
 }
 
 model OAuthState {
-  state      String   @id // случайный nonce
-  telegramId BigInt
-  expiresAt  DateTime
+  state        String   @id // случайный nonce
+  telegramId   BigInt
+  expiresAt    DateTime
+  resumeWizard Boolean  @default(false) // сгенерирован из середины /new — после подключения предложить «Продовжити»
 }
 
 // enum-ов нет: SQLite их не поддерживает.

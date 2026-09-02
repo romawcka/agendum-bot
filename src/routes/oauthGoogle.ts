@@ -1,8 +1,14 @@
 import { Router } from "express";
+import { InlineKeyboard } from "grammy";
 import { bot } from "../bot/bot.js";
 import { prisma } from "../config/db.js";
 import { logger } from "../config/logger.js";
-import { GOOGLE_CALENDAR_SCOPE, createGoogleOAuthClient, encryptGoogleTokens } from "../services/TokenService.js";
+import {
+  GOOGLE_OAUTH_SCOPES,
+  createGoogleOAuthClient,
+  encryptGoogleTokens,
+  fetchGoogleIdentity,
+} from "../services/TokenService.js";
 
 export const oauthGoogleRouter = Router();
 
@@ -31,7 +37,7 @@ oauthGoogleRouter.get("/start", async (req, res) => {
   const url = client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: [GOOGLE_CALENDAR_SCOPE],
+    scope: GOOGLE_OAUTH_SCOPES,
     state,
   });
 
@@ -78,27 +84,44 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
       refreshToken: tokens.refresh_token,
     });
 
-    await prisma.calendarAccount.upsert({
-      where: { userId: user.id },
-      update: {
-        externalId: "primary",
-        label: "Google Calendar",
-        accessToken: encrypted.accessToken,
-        refreshToken: encrypted.refreshToken,
-        expiresAt: new Date(tokens.expiry_date),
-        isActive: true,
-      },
-      create: {
-        userId: user.id,
-        externalId: "primary",
-        label: "Google Calendar",
-        accessToken: encrypted.accessToken,
-        refreshToken: encrypted.refreshToken,
-        expiresAt: new Date(tokens.expiry_date),
-      },
-    });
+    const identity = await fetchGoogleIdentity(client);
 
-    await bot.api.sendMessage(oauthState.telegramId.toString(), "✅ Google Calendar підключено.");
+    const accountData = {
+      googleAccountId: identity.id,
+      externalId: "primary",
+      label: identity.email,
+      accessToken: encrypted.accessToken,
+      refreshToken: encrypted.refreshToken,
+      expiresAt: new Date(tokens.expiry_date),
+      isActive: true,
+    };
+
+    // A row for this exact Google login already exists (reconnect) — refresh it in place.
+    // Otherwise, a pre-feature-04 row with no identity on file yet (googleAccountId: null)
+    // is resolved into this login rather than left to accumulate a duplicate. Only then a
+    // genuinely new account (a second, different Google login) creates a new row.
+    const existing =
+      (await prisma.calendarAccount.findUnique({
+        where: { userId_googleAccountId: { userId: user.id, googleAccountId: identity.id } },
+      })) ?? (await prisma.calendarAccount.findFirst({ where: { userId: user.id, googleAccountId: null } }));
+
+    const account = existing
+      ? await prisma.calendarAccount.update({ where: { id: existing.id }, data: accountData })
+      : await prisma.calendarAccount.create({ data: { userId: user.id, ...accountData } });
+
+    if (user.defaultAccountId === null) {
+      await prisma.user.update({ where: { id: user.id }, data: { defaultAccountId: account.id } });
+    }
+
+    if (oauthState.resumeWizard) {
+      await bot.api.sendMessage(
+        oauthState.telegramId.toString(),
+        "✅ Google Calendar підключено. Можеш продовжити створення події.",
+        { reply_markup: new InlineKeyboard().text("▶️ Продовжити", "wizard:calendar_connected") },
+      );
+    } else {
+      await bot.api.sendMessage(oauthState.telegramId.toString(), "✅ Google Calendar підключено.");
+    }
     res.send(SUCCESS_PAGE);
   } catch (err) {
     logger.error({ err }, "Error handling Google OAuth callback");

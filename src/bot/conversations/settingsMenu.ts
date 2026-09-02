@@ -3,6 +3,7 @@ import type { Conversation } from "@grammyjs/conversations";
 import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { prisma } from "../../config/db.js";
+import { listActiveAccounts } from "../../services/CalendarAccountService.js";
 import type { BotContext } from "../context.js";
 import { connectGoogleCalendar } from "./connectGoogle.js";
 import { collectTimezone, timezoneKeyboard } from "./timezone.js";
@@ -39,25 +40,28 @@ interface SettingsUser {
   id: number;
   timezone: string | null;
   defaultReminder: number;
+  defaultAccountId: number | null;
 }
 
 function settingsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
     .text("🌍 Часовий пояс", "settings:timezone")
     .row()
-    .text("🔗 Підключити / відключити календар", "settings:connect")
+    .text("🔗 Google-акаунти", "settings:accounts")
     .row()
     .text("🗑 Видалити всі мої дані", "settings:delete_all");
 }
 
-function formatSettingsText(user: SettingsUser, account: CalendarAccount | null): string {
-  const connected = account?.isActive ?? false;
+function formatSettingsText(user: SettingsUser, accounts: CalendarAccount[]): string {
+  const defaultAccount = accounts.find((a) => a.id === user.defaultAccountId);
+  const accountsLine =
+    accounts.length === 0 ? "❌ не підключено" : `${accounts.length} підключено${defaultAccount ? `, основний ${defaultAccount.label}` : ""}`;
 
   return [
     "⚙️ Налаштування",
     "",
     `Часовий пояс: ${user.timezone ?? "не задано"}`,
-    `Google Calendar: ${connected ? "✅ підключено" : "❌ не підключено"}`,
+    `Google-акаунти: ${accountsLine}`,
     `Нагадування: за ${user.defaultReminder} хвилин`,
   ].join("\n");
 }
@@ -74,36 +78,97 @@ async function handleTimezoneChange(
   return "done";
 }
 
-async function handleConnectDisconnect(
+/** One account's own actions: set default / disconnect / back. */
+async function handleAccountActions(
   conversation: SettingsConversation,
   ctx: Context,
-  account: CalendarAccount | null,
-): Promise<"cancel" | "done" | "exit"> {
-  const keyboard = new InlineKeyboard()
-    .text(account?.isActive ? "Google: відключити" : "Google: підключити", "conn:google")
-    .row()
-    .text("⬅️ Назад", "conn:back");
-  await ctx.reply("Керування календарем:", { reply_markup: keyboard });
+  userId: number,
+  account: CalendarAccount,
+  isDefault: boolean,
+): Promise<"cancel" | "done"> {
+  const keyboard = new InlineKeyboard();
+  if (!isDefault) {
+    keyboard.text("⭐ Зробити основним", "acctact:default").row();
+  }
+  keyboard.text("🔌 Відключити", "acctact:disconnect").row().text("⬅️ Назад", "acctact:back");
+  await ctx.reply(account.label, { reply_markup: keyboard });
 
   for (;;) {
     const update = await nextUpdate(conversation);
     if (update.kind === "cancel") return "cancel";
     if (update.kind !== "callback") continue;
 
-    if (update.data === "conn:back") {
+    if (update.data === "acctact:back") {
       return "done";
     }
 
-    if (update.data === "conn:google") {
-      if (account?.isActive) {
-        await conversation.external(() => prisma.calendarAccount.update({ where: { id: account.id }, data: { isActive: false } }));
-        await ctx.reply("Google Calendar відключено.");
-        return "done";
-      }
+    if (update.data === "acctact:default") {
+      await conversation.external(() => prisma.user.update({ where: { id: userId }, data: { defaultAccountId: account.id } }));
+      await ctx.reply(`✅ Основний акаунт: ${account.label}`);
+      return "done";
+    }
+
+    if (update.data === "acctact:disconnect") {
+      await conversation.external(() =>
+        prisma.$transaction([
+          prisma.calendarAccount.update({ where: { id: account.id }, data: { isActive: false } }),
+          // Clear the default only if we just disconnected it — resolveDefaultAccount
+          // (used by the wizard) falls back to another active account, or none, on its own.
+          prisma.user.updateMany({ where: { id: userId, defaultAccountId: account.id }, data: { defaultAccountId: null } }),
+        ]),
+      );
+      await ctx.reply(`Відключено: ${account.label}`);
+      return "done";
+    }
+  }
+}
+
+/** The account list screen: pick an account for its own actions, or connect another. */
+async function handleAccountsMenu(conversation: SettingsConversation, ctx: Context, userId: number): Promise<"cancel" | "done" | "exit"> {
+  for (;;) {
+    const { accounts, defaultAccountId } = await conversation.external(async () => {
+      const [activeAccounts, dbUser] = await Promise.all([
+        listActiveAccounts(userId),
+        prisma.user.findUniqueOrThrow({ where: { id: userId } }),
+      ]);
+      return { accounts: activeAccounts, defaultAccountId: dbUser.defaultAccountId };
+    });
+
+    let keyboard = new InlineKeyboard();
+    for (const account of accounts) {
+      const star = account.id === defaultAccountId ? "⭐ " : "";
+      keyboard = keyboard.text(`${star}${account.label}`, `acct:open:${account.id}`).row();
+    }
+    keyboard = keyboard
+      .text(accounts.length === 0 ? "➕ Підключити акаунт" : "➕ Підключити ще один акаунт", "acct:connect")
+      .row()
+      .text("⬅️ Назад", "acct:back");
+
+    await ctx.reply("🔗 Google-акаунти", { reply_markup: keyboard });
+
+    const update = await nextUpdate(conversation);
+    if (update.kind === "cancel") return "cancel";
+    if (update.kind !== "callback") continue;
+
+    if (update.data === "acct:back") {
+      return "done";
+    }
+
+    if (update.data === "acct:connect") {
       // Google connection is asynchronous (the user goes to the browser) — don't show
       // a stale settings screen right after sending the link, wait for the OAuth callback.
       await connectGoogleCalendar(conversation, ctx);
       return "exit";
+    }
+
+    if (update.data.startsWith("acct:open:")) {
+      const id = Number(update.data.slice("acct:open:".length));
+      const account = accounts.find((a) => a.id === id);
+      if (!account) continue;
+
+      const result = await handleAccountActions(conversation, ctx, userId, account, account.id === defaultAccountId);
+      if (result === "cancel") return "cancel";
+      // "done" — loop back and re-render the list (default/label may have changed)
     }
   }
 }
@@ -140,20 +205,21 @@ export async function settingsMenu(conversation: SettingsConversation, ctx: Cont
   }
 
   for (;;) {
-    const { user, account } = await conversation.external(async () => {
+    const { user, accounts } = await conversation.external(async () => {
       const dbUser = await prisma.user.findUniqueOrThrow({ where: { telegramId: BigInt(telegramId) } });
-      const calendarAccount = await prisma.calendarAccount.findUnique({ where: { userId: dbUser.id } });
+      const activeAccounts = await listActiveAccounts(dbUser.id);
       return {
         user: {
           id: dbUser.id,
           timezone: dbUser.timezone,
           defaultReminder: dbUser.defaultReminder,
+          defaultAccountId: dbUser.defaultAccountId,
         },
-        account: calendarAccount,
+        accounts: activeAccounts,
       };
     });
 
-    await ctx.reply(formatSettingsText(user, account), { reply_markup: settingsKeyboard() });
+    await ctx.reply(formatSettingsText(user, accounts), { reply_markup: settingsKeyboard() });
 
     const update = await nextUpdate(conversation);
     if (update.kind === "cancel") {
@@ -171,8 +237,8 @@ export async function settingsMenu(conversation: SettingsConversation, ctx: Cont
     let result: "cancel" | "done" | "exit" = "done";
     if (update.data === "settings:timezone") {
       result = await handleTimezoneChange(conversation, ctx, user.id);
-    } else if (update.data === "settings:connect") {
-      result = await handleConnectDisconnect(conversation, ctx, account);
+    } else if (update.data === "settings:accounts") {
+      result = await handleAccountsMenu(conversation, ctx, user.id);
     } else if (update.data === "settings:delete_all") {
       result = await handleDeleteAll(conversation, ctx, user.id);
     }

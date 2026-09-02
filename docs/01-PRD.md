@@ -130,7 +130,7 @@ Rationale: for iteration 1's load — a dozen users, dozens of records a day —
 | What we store | Volume |
 |---|---|
 | Users and settings | tens of rows |
-| Connected calendars | ≤ 1 per user (Google only) |
+| Connected calendars | any number of Google accounts per user (see `docs/features/04-multiple-google-accounts.md`) |
 | Created events (history) | hundreds of rows per year |
 | Wizard state | one active row per user |
 
@@ -209,6 +209,8 @@ Target length — one to two pages. A feature PRD that grows to the size of the 
 | 00 | Iteration 1: wizard, Google + iCloud, list and delete | Done (2026-07-23) | this document | — |
 | 01 | Interface language selection (uk/en) | Draft (2026-07-24) | `docs/features/01-language-selection.md` | see §11, iteration 5 |
 | 02 | Removed iCloud/CalDAV — Google only remains | Done (2026-07-31) | this document | yes, §1, §3, §5, §6, §10 edited directly: dropped support for a second provider, ≤1 calendar per user |
+| 03 | Resume the wizard after connecting Google Calendar mid-flow | In progress (2026-09-01) | `docs/features/03-resume-wizard-after-connect.md` | — |
+| 04 | Connect multiple Google accounts, choose which one to create in | In progress (2026-09-01) | `docs/features/04-multiple-google-accounts.md` | yes, §8 edited directly: dropped the ≤1-account-per-user limit |
 
 A row is added the moment work on a feature starts, not after — so the registry reflects the real state, not just what's finished.
 

@@ -11,6 +11,7 @@ const OAUTH_STATE_TTL_MINUTES = 10;
 export async function connectGoogleCalendar(
   conversation: Conversation<BotContext, Context>,
   ctx: Context,
+  opts: { resumeWizard?: boolean } = {},
 ): Promise<void> {
   const telegramId = ctx.from?.id;
   if (telegramId === undefined) {
@@ -24,6 +25,7 @@ export async function connectGoogleCalendar(
         state: nonce,
         telegramId: BigInt(telegramId),
         expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MINUTES * 60_000),
+        resumeWizard: opts.resumeWizard ?? false,
       },
     });
     return nonce;

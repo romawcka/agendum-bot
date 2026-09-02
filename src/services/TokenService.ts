@@ -9,6 +9,9 @@ import { AppError } from "../utils/errors.js";
 export type GoogleOAuthClient = InstanceType<typeof google.auth.OAuth2>;
 
 export const GOOGLE_CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+// email scope, alongside the calendar one — lets us identify *which* Google account was
+// used (see fetchGoogleIdentity), needed to support connecting more than one (feature 04).
+export const GOOGLE_OAUTH_SCOPES = [GOOGLE_CALENDAR_SCOPE, "https://www.googleapis.com/auth/userinfo.email"];
 
 const GOOGLE_TOKEN_EXPIRED_MESSAGE = "Доступ до Google Calendar втрачено. Підключи знову: /settings";
 
@@ -17,6 +20,16 @@ const EXPIRY_SAFETY_MARGIN_MS = 60_000;
 
 export function createGoogleOAuthClient(): GoogleOAuthClient {
   return new google.auth.OAuth2(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_SECRET, env.GOOGLE_REDIRECT_URI);
+}
+
+/** Identifies which Google account was just connected — needed to tell two connected accounts apart (feature 04). */
+export async function fetchGoogleIdentity(client: GoogleOAuthClient): Promise<{ id: string; email: string }> {
+  const oauth2 = google.oauth2({ version: "v2", auth: client });
+  const { data } = await oauth2.userinfo.get();
+  if (!data.id || !data.email) {
+    throw new Error("Google didn't return an id/email in userinfo (check the userinfo.email scope)");
+  }
+  return { id: data.id, email: data.email };
 }
 
 export function encryptGoogleTokens(tokens: {
