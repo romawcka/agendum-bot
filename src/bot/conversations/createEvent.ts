@@ -23,7 +23,7 @@ const CANCEL = Symbol("wizard-cancel");
 type Cancellable<T> = T | typeof CANCEL;
 
 const CANCEL_TEXT = "Скасував. Нічого не створено.";
-const CANCEL_BUTTON = { text: "❌ Скасувати", data: "wizard:cancel" } as const;
+const CANCEL_BUTTON = { text: "Скасувати", data: "wizard:cancel" } as const;
 
 interface WizardDraft {
   title: string;
@@ -37,7 +37,7 @@ interface WizardDraft {
 type StepUpdate = { kind: "cancel" } | { kind: "text"; text: string } | { kind: "callback"; data: string };
 
 /**
- * Every step goes through this. Handles /cancel (and the ❌ Cancel button)
+ * Every step goes through this. Handles /cancel (and the Cancel button)
  * uniformly, intercepts /new mid-wizard to show the "resume or restart"
  * prompt from the UX doc's "Other" section, and swallows any other slash
  * command generically — none of them should ever fall through as literal
@@ -64,9 +64,9 @@ async function nextStepUpdate(conversation: WizardConversation): Promise<StepUpd
     }
     if (text === "/new") {
       const keyboard = new InlineKeyboard()
-        .text("▶️ Продовжити", "wizard:resume")
+        .text("Продовжити", "wizard:resume")
         .row()
-        .text("🔄 Почати заново", "wizard:restart");
+        .text("Почати заново", "wizard:restart");
       await update.reply("У тебе є незакінчена подія. Продовжити чи почати заново?", {
         reply_markup: keyboard,
       });
@@ -91,7 +91,7 @@ function withCancel(keyboard: InlineKeyboard): InlineKeyboard {
 }
 
 async function collectTitle(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string>> {
-  await ctx.reply("📝 Назва події?", { reply_markup: withCancel(new InlineKeyboard()) });
+  await ctx.reply("Назва події?", { reply_markup: withCancel(new InlineKeyboard()) });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -112,7 +112,7 @@ async function collectTitle(conversation: WizardConversation, ctx: Context): Pro
 }
 
 async function collectDescription(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string | undefined>> {
-  const keyboard = withCancel(new InlineKeyboard().text("⏭ Пропустити", "wizard:skip"));
+  const keyboard = withCancel(new InlineKeyboard().text("Пропустити", "wizard:skip"));
   await ctx.reply("Додати опис?", { reply_markup: keyboard });
 
   for (;;) {
@@ -148,13 +148,13 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
         .row()
         .text("Своя дата", "date:custom")
         .row()
-        .text("📅 Календар", "date:calendar"),
+        .text("Календар", "date:calendar"),
     );
-    await ctx.reply("📅 На яку дату?", { reply_markup: keyboard });
+    await ctx.reply("На яку дату?", { reply_markup: keyboard });
   }
 
   async function renderCalendar(): Promise<void> {
-    await ctx.reply("📅 На яку дату?", { reply_markup: withCancel(buildCalendarKeyboard(yearMonth)) });
+    await ctx.reply("На яку дату?", { reply_markup: withCancel(buildCalendarKeyboard(yearMonth)) });
   }
 
   await renderMenu();
@@ -217,7 +217,7 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
       .text("Так", "date:past:yes")
       .row()
       .text("Вибрати іншу", "date:past:retry");
-    await ctx.reply("⚠️ Це минула дата. Все одно створити?", { reply_markup: confirmKeyboard });
+    await ctx.reply("Це минула дата. Все одно створити?", { reply_markup: confirmKeyboard });
     const confirmUpdate = await nextStepUpdate(conversation);
     if (confirmUpdate.kind === "cancel") return CANCEL;
     if (confirmUpdate.kind === "callback" && confirmUpdate.data === "date:past:yes") {
@@ -233,7 +233,7 @@ async function collectDate(conversation: WizardConversation, ctx: Context): Prom
 
 async function collectEventType(conversation: WizardConversation, ctx: Context): Promise<Cancellable<"allday" | "timed">> {
   const keyboard = withCancel(
-    new InlineKeyboard().text("🌞 Весь день", "type:allday").row().text("🕐 Вказати час", "type:timed"),
+    new InlineKeyboard().text("Весь день", "type:allday").row().text("Вказати час", "type:timed"),
   );
   await ctx.reply("Подія на весь день чи на конкретний час?", { reply_markup: keyboard });
 
@@ -248,7 +248,7 @@ async function collectEventType(conversation: WizardConversation, ctx: Context):
 }
 
 async function collectStartTime(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string>> {
-  await ctx.reply("🕐 О котрій початок? Формат ГГ:ХВ, наприклад 15:00", {
+  await ctx.reply("О котрій початок? Формат ГГ:ХВ, наприклад 15:00", {
     reply_markup: withCancel(new InlineKeyboard()),
   });
 
@@ -267,7 +267,7 @@ async function collectStartTime(conversation: WizardConversation, ctx: Context):
 }
 
 async function collectDuration(conversation: WizardConversation, ctx: Context): Promise<Cancellable<number>> {
-  await ctx.reply("⏱ Скільки триває?", { reply_markup: buildDurationKeyboard() });
+  await ctx.reply("Скільки триває?", { reply_markup: buildDurationKeyboard() });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -315,9 +315,9 @@ async function collectEditField(
     keyboard.text("Час", "edit:time").row().text("Тривалість", "edit:duration").row();
   }
   if (opts.showCalendarOption) {
-    keyboard.text("📅 Календар", "edit:calendar").row();
+    keyboard.text("Календар", "edit:calendar").row();
   }
-  keyboard.text("⬅️ Назад до перегляду", "edit:back");
+  keyboard.text("Назад до перегляду", "edit:back");
 
   await ctx.reply("Що поміняти?", { reply_markup: keyboard });
 
@@ -571,7 +571,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   const eventDraft = toEventDraft(draft, timezone, reminderMinutes);
 
   for (;;) {
-    await ctx.reply("⏳ Створюю подію…");
+    await ctx.reply("Створюю подію…");
 
     try {
       const created = await GoogleCalendarProvider.createEvent(connectedAccount, eventDraft);
@@ -605,12 +605,12 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
       return;
     } catch (err) {
       if (err instanceof AppError && err.code !== "google_create_failed") {
-        await ctx.reply(`❌ ${err.userMessage}`);
+        await ctx.reply(err.userMessage);
         return;
       }
 
       await ctx.reply(
-        "❌ Не вдалося створити подію: календар не відповідає.\nЧернетку збережено — можна спробувати ще раз.",
+        "Не вдалося створити подію: календар не відповідає.\nЧернетку збережено — можна спробувати ще раз.",
         { reply_markup: buildRetryKeyboard() },
       );
 

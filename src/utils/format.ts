@@ -21,7 +21,7 @@ function formatTimeRange(draft: PreviewDraft, timezone: string): { start: DateTi
 }
 
 export function formatPreview(draft: PreviewDraft, timezone: string, calendarLabel: string): string {
-  const lines = ["📋 Перевір подію", "", `Назва: ${draft.title}`];
+  const lines = ["Перевір подію", "", `Назва: ${draft.title}`];
 
   if (draft.description) {
     lines.push(`Опис: ${draft.description}`);
@@ -44,7 +44,7 @@ export function formatPreview(draft: PreviewDraft, timezone: string, calendarLab
 
 export function formatSuccessCard(draft: PreviewDraft, timezone: string, calendarLabel: string): string {
   const dateOnly = DateTime.fromFormat(draft.date, "yyyy-MM-dd", { zone: timezone }).toFormat("dd.MM.yyyy");
-  const lines = ["✅ Подію створено", "", draft.title];
+  const lines = ["Подію створено", "", draft.title];
 
   if (draft.allDay) {
     lines.push(`${dateOnly}, весь день`);

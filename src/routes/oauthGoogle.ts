@@ -119,11 +119,11 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
     if (oauthState.resumeWizard) {
       await bot.api.sendMessage(
         oauthState.telegramId.toString(),
-        "✅ Google Calendar підключено. Можеш продовжити створення події.",
-        { reply_markup: new InlineKeyboard().text("▶️ Продовжити", "wizard:calendar_connected") },
+        "Google Calendar підключено. Можеш продовжити створення події.",
+        { reply_markup: new InlineKeyboard().text("Продовжити", "wizard:calendar_connected") },
       );
     } else {
-      await bot.api.sendMessage(oauthState.telegramId.toString(), "✅ Google Calendar підключено.");
+      await bot.api.sendMessage(oauthState.telegramId.toString(), "Google Calendar підключено.");
     }
     res.send(SUCCESS_PAGE);
   } catch (err) {

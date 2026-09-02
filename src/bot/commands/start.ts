@@ -3,7 +3,7 @@ import { buildMainMenuKeyboard } from "../keyboards/mainMenuKeyboard.js";
 
 export async function startCommand(ctx: BotContext): Promise<void> {
   if (ctx.dbUser.timezone) {
-    await ctx.reply("Все готово 🎉\n\nЩо зробити?", { reply_markup: buildMainMenuKeyboard() });
+    await ctx.reply("Все готово!\n\nЩо зробити?", { reply_markup: buildMainMenuKeyboard() });
     return;
   }
 

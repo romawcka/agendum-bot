@@ -46,7 +46,7 @@ export async function onboarding(conversation: OnboardingConversation, ctx: Cont
   }
 
   await ctx.reply(
-    "Привіт! 👋 Я допоможу швидко створювати події в календарі прямо з Telegram.\n\n" +
+    "Привіт! Я допоможу швидко створювати події в календарі прямо з Telegram.\n\n" +
       "Спочатку налаштуємо дві речі: часовий пояс і календар.\n\n" +
       "У якому ти часовому поясі?",
     { reply_markup: timezoneKeyboard() },
@@ -58,9 +58,9 @@ export async function onboarding(conversation: OnboardingConversation, ctx: Cont
     prisma.user.update({ where: { telegramId: BigInt(telegramId) }, data: { timezone } }),
   );
 
-  await ctx.reply(`✅ Часовий пояс: ${timezone}\n\nТепер підключимо Google Calendar.`);
+  await ctx.reply(`Часовий пояс: ${timezone}\n\nТепер підключимо Google Calendar.`);
 
   await collectCalendarConnect(conversation, ctx, telegramId);
 
-  await ctx.reply("Все готово 🎉\n\nЩо зробити?", { reply_markup: buildMainMenuKeyboard() });
+  await ctx.reply("Все готово!\n\nЩо зробити?", { reply_markup: buildMainMenuKeyboard() });
 }

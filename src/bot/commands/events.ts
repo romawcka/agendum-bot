@@ -97,17 +97,17 @@ function buildEventsKeyboard(
 ): InlineKeyboard {
   const keyboard = new InlineKeyboard();
   events.forEach((event, i) => {
-    keyboard.text(`🗑 ${from + i}`, `events:del:${event.id}:${page}`);
+    keyboard.text(`Видалити ${from + i}`, `events:del:${event.id}:${page}`);
   });
   keyboard.row();
   if (page > 1) {
-    keyboard.text("◀️ Назад", `events:page:${page - 1}`);
+    keyboard.text("Назад", `events:page:${page - 1}`);
   }
   if (page < totalPages) {
-    keyboard.text("Вперед ▶️", `events:page:${page + 1}`);
+    keyboard.text("Вперед", `events:page:${page + 1}`);
   }
   if (totalCount > 1) {
-    keyboard.row().text("🗑 Видалити всі", `events:delall:request:${page}`);
+    keyboard.row().text("Видалити всі", `events:delall:request:${page}`);
   }
   return keyboard;
 }
@@ -139,7 +139,7 @@ async function renderEventsPage(ctx: BotContext, page: number, edit: boolean, re
   const to = from + pageEvents.length;
 
   const text = [
-    `📆 Найближчі події (${from + 1}–${to} з ${all.length})`,
+    `Найближчі події (${from + 1}–${to} з ${all.length})`,
     "",
     pageEvents.map((event, i) => formatEventLine(from + i + 1, event, timezone)).join("\n\n"),
   ].join("\n");
@@ -180,9 +180,9 @@ export async function eventDeleteRequestCallback(ctx: BotContext): Promise<void>
 
   const text = `Видалити подію?\n\n${event.title}\n${formatEventDateLine(event, timezone)}`;
   const keyboard = new InlineKeyboard()
-    .text("🗑 Так, видалити", `events:confirm:${event.id}:${page}`)
+    .text("Так, видалити", `events:confirm:${event.id}:${page}`)
     .row()
-    .text("⬅️ Скасувати", `events:page:${page}`);
+    .text("Скасувати", `events:page:${page}`);
 
   await ctx.editMessageText(text, { reply_markup: keyboard }).catch(() => ctx.reply(text, { reply_markup: keyboard }));
 }
@@ -206,11 +206,11 @@ export async function eventDeleteConfirmCallback(ctx: BotContext): Promise<void>
 
     const text = result.alreadyDeleted
       ? "Цю подію вже видалено з календаря. Прибрав зі списку."
-      : "✅ Подію видалено";
+      : "Подію видалено";
     await ctx.editMessageText(text).catch(() => ctx.reply(text));
   } catch (err) {
     logger.error({ err, eventId: event.id }, "Failed to delete event");
-    const text = `❌ ${toUserMessage(err)}`;
+    const text = toUserMessage(err);
     await ctx.editMessageText(text).catch(() => ctx.reply(text));
     return;
   }
@@ -236,7 +236,7 @@ export async function eventsDeleteAllRequestCallback(ctx: BotContext): Promise<v
   const keyboard = new InlineKeyboard()
     .text("Так, видалити всі", `events:delall:confirm:${page}`)
     .row()
-    .text("⬅️ Скасувати", `events:page:${page}`);
+    .text("Скасувати", `events:page:${page}`);
 
   await ctx.editMessageText(text, { reply_markup: keyboard }).catch(() => ctx.reply(text, { reply_markup: keyboard }));
 }
@@ -249,7 +249,7 @@ export async function eventsDeleteAllConfirmCallback(ctx: BotContext): Promise<v
   const timezone = ctx.dbUser.timezone;
   if (!timezone) return;
 
-  await ctx.editMessageText("⏳ Видаляю події…").catch(() => ctx.reply("⏳ Видаляю події…"));
+  await ctx.editMessageText("Видаляю події…").catch(() => ctx.reply("Видаляю події…"));
 
   const all = await fetchUpcomingEventsFromDb(ctx.dbUser.id, timezone);
   if (all.length === 0) {
@@ -283,8 +283,8 @@ export async function eventsDeleteAllConfirmCallback(ctx: BotContext): Promise<v
 
   const text =
     failedCount === 0
-      ? `✅ Видалено ${succeededIds.length} подій`
-      : `✅ Видалено ${succeededIds.length} з ${all.length}. ${failedCount} не вдалося видалити — спробуй ще раз пізніше.`;
+      ? `Видалено ${succeededIds.length} подій`
+      : `Видалено ${succeededIds.length} з ${all.length}. ${failedCount} не вдалося видалити — спробуй ще раз пізніше.`;
   await ctx.reply(text);
 
   await renderEventsPage(ctx, page, false, false);

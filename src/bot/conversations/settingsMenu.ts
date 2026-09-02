@@ -45,20 +45,20 @@ interface SettingsUser {
 
 function settingsKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
-    .text("🌍 Часовий пояс", "settings:timezone")
+    .text("Часовий пояс", "settings:timezone")
     .row()
-    .text("🔗 Google-акаунти", "settings:accounts")
+    .text("Google-акаунти", "settings:accounts")
     .row()
-    .text("🗑 Видалити всі мої дані", "settings:delete_all");
+    .text("Видалити всі мої дані", "settings:delete_all");
 }
 
 function formatSettingsText(user: SettingsUser, accounts: CalendarAccount[]): string {
   const defaultAccount = accounts.find((a) => a.id === user.defaultAccountId);
   const accountsLine =
-    accounts.length === 0 ? "❌ не підключено" : `${accounts.length} підключено${defaultAccount ? `, основний ${defaultAccount.label}` : ""}`;
+    accounts.length === 0 ? "не підключено" : `${accounts.length} підключено${defaultAccount ? `, основний ${defaultAccount.label}` : ""}`;
 
   return [
-    "⚙️ Налаштування",
+    "Налаштування",
     "",
     `Часовий пояс: ${user.timezone ?? "не задано"}`,
     `Google-акаунти: ${accountsLine}`,
@@ -74,7 +74,7 @@ async function handleTimezoneChange(
   await ctx.reply("У якому ти часовому поясі?", { reply_markup: timezoneKeyboard() });
   const timezone = await collectTimezone(conversation);
   await conversation.external(() => prisma.user.update({ where: { id: userId }, data: { timezone } }));
-  await ctx.reply(`✅ Часовий пояс: ${timezone}`);
+  await ctx.reply(`Часовий пояс: ${timezone}`);
   return "done";
 }
 
@@ -88,9 +88,9 @@ async function handleAccountActions(
 ): Promise<"cancel" | "done"> {
   const keyboard = new InlineKeyboard();
   if (!isDefault) {
-    keyboard.text("⭐ Зробити основним", "acctact:default").row();
+    keyboard.text("Зробити основним", "acctact:default").row();
   }
-  keyboard.text("🔌 Відключити", "acctact:disconnect").row().text("⬅️ Назад", "acctact:back");
+  keyboard.text("Відключити", "acctact:disconnect").row().text("Назад", "acctact:back");
   await ctx.reply(account.label, { reply_markup: keyboard });
 
   for (;;) {
@@ -104,7 +104,7 @@ async function handleAccountActions(
 
     if (update.data === "acctact:default") {
       await conversation.external(() => prisma.user.update({ where: { id: userId }, data: { defaultAccountId: account.id } }));
-      await ctx.reply(`✅ Основний акаунт: ${account.label}`);
+      await ctx.reply(`Основний акаунт: ${account.label}`);
       return "done";
     }
 
@@ -136,15 +136,15 @@ async function handleAccountsMenu(conversation: SettingsConversation, ctx: Conte
 
     let keyboard = new InlineKeyboard();
     for (const account of accounts) {
-      const star = account.id === defaultAccountId ? "⭐ " : "";
-      keyboard = keyboard.text(`${star}${account.label}`, `acct:open:${account.id}`).row();
+      const label = account.id === defaultAccountId ? `${account.label} (основний)` : account.label;
+      keyboard = keyboard.text(label, `acct:open:${account.id}`).row();
     }
     keyboard = keyboard
-      .text(accounts.length === 0 ? "➕ Підключити акаунт" : "➕ Підключити ще один акаунт", "acct:connect")
+      .text(accounts.length === 0 ? "Підключити акаунт" : "Підключити ще один акаунт", "acct:connect")
       .row()
-      .text("⬅️ Назад", "acct:back");
+      .text("Назад", "acct:back");
 
-    await ctx.reply("🔗 Google-акаунти", { reply_markup: keyboard });
+    await ctx.reply("Google-акаунти", { reply_markup: keyboard });
 
     const update = await nextUpdate(conversation);
     if (update.kind === "cancel") return "cancel";
@@ -176,7 +176,7 @@ async function handleAccountsMenu(conversation: SettingsConversation, ctx: Conte
 async function handleDeleteAll(conversation: SettingsConversation, ctx: Context, userId: number): Promise<"cancel" | "done" | "exit"> {
   const keyboard = new InlineKeyboard().text("Так, видалити все", "del:yes").row().text("Скасувати", "del:no");
   await ctx.reply(
-    "⚠️ Це видалить твій профіль, підключені календарі та історію подій з бота.\n" +
+    "Це видалить твій профіль, підключені календарі та історію подій з бота.\n" +
       "Самі події в календарі залишаться.\n\n" +
       "Точно видалити?",
     { reply_markup: keyboard },
@@ -228,7 +228,7 @@ export async function settingsMenu(conversation: SettingsConversation, ctx: Cont
     }
     if (update.kind === "new") {
       await ctx.reply("Вийшов із налаштувань.", {
-        reply_markup: new InlineKeyboard().text("📝 Створити подію", "menu:new"),
+        reply_markup: new InlineKeyboard().text("Створити подію", "menu:new"),
       });
       return;
     }

@@ -13,7 +13,7 @@ export function timezoneKeyboard(): InlineKeyboard {
     .text("Europe/Kyiv", "tz:set:Europe/Kyiv")
     .text("Asia/Tel_Aviv", "tz:set:Asia/Tel_Aviv")
     .row()
-    .text("⌨️ Ввести інший", "tz:manual");
+    .text("Ввести інший", "tz:manual");
 }
 
 export async function collectTimezone(conversation: AnyConversation): Promise<string> {

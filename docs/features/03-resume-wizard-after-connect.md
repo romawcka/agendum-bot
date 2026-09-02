@@ -15,9 +15,9 @@ Today `/new` refuses to start at all if the user has no active Google Calendar c
 
 **In:**
 - [x] The wizard no longer blocks entry when there's no connected/active Google Calendar.
-- [x] The calendar-connection check moves to the moment the user taps "✅ Надіслати" — the earliest point a connection is actually required.
+- [x] The calendar-connection check moves to the moment the user taps "Надіслати" — the earliest point a connection is actually required.
 - [x] If not connected at that point, the bot shows a connect link and waits, in place, inside the same conversation.
-- [x] After a successful connect, the bot offers a "▶️ Продовжити" button that resumes the exact same wizard — preview screen, all previously entered fields intact, no re-asking.
+- [x] After a successful connect, the bot offers a "Продовжити" button that resumes the exact same wizard — preview screen, all previously entered fields intact, no re-asking.
 - [x] Tapping "Продовжити" after the wizard session has already expired (60-minute TTL) is handled gracefully, not as a crash.
 
 **Not in (deliberately deferred):**
@@ -30,19 +30,19 @@ Today `/new` refuses to start at all if the user has no active Google Calendar c
 
 1. The user runs `/new` with no calendar connected. The wizard proceeds exactly as usual — title, description, date, event type, time/duration, preview.
 2. On the preview screen the "Calendar" line shows "не підключено" instead of a calendar name.
-3. The user taps "✅ Надіслати".
+3. The user taps "Надіслати".
 4. The bot detects there's no active Google Calendar account and shows a connect link (identical wording/behavior to `/settings`'s connect flow) instead of creating the event.
 5. The user taps the link, completes Google's consent screen in the browser.
-6. The bot sends "✅ Google Calendar підключено. Можеш продовжити створення події." with a "▶️ Продовжити" button.
-7. The user taps it. The bot re-shows the preview screen (now with the real calendar name) and creation proceeds normally from "✅ Надіслати" onward — no field was asked again.
+6. The bot sends "Google Calendar підключено. Можеш продовжити створення події." with a "Продовжити" button.
+7. The user taps it. The bot re-shows the preview screen (now with the real calendar name) and creation proceeds normally from "Надіслати" onward — no field was asked again.
 
 ### 3.2 Edge cases
 
 | Situation | Behavior |
 |---|---|
 | User sends random text while the bot is waiting for the connection | Bot replies with a short reminder to tap the button above or cancel, keeps waiting |
-| User taps "❌ Скасувати" while waiting for the connection | Standard cancel: "Скасував. Нічого не створено." |
-| User taps "▶️ Продовжити" after the 60-minute wizard TTL already expired | No live conversation catches the callback; a fallback handler answers "Ця подія вже неактуальна. Почни заново: /new" |
+| User taps "Скасувати" while waiting for the connection | Standard cancel: "Скасував. Нічого не створено." |
+| User taps "Продовжити" after the 60-minute wizard TTL already expired | No live conversation catches the callback; a fallback handler answers "Ця подія вже неактуальна. Почни заново: /new" |
 | Account was connected, then a token refresh deactivated it (`TokenService`) before the user hits Send | Treated the same as never having connected — re-fetched fresh at submission time, not from the cached value at wizard start |
 | User connects, but from `/settings` mid-wizard instead of via the wizard's own link | Fine either way — the submission-time check re-fetches the account from the DB regardless of how it got connected |
 
@@ -56,9 +56,9 @@ New/changed messages (Ukrainian, matches existing tone — mirrored into `docs/0
 Keyboard: same connect-link button as the existing connect flow (`Підключити Google Calendar`, inline URL button).
 
 ```
-✅ Google Calendar підключено. Можеш продовжити створення події.
+Google Calendar підключено. Можеш продовжити створення події.
 ```
-Keyboard: `▶️ Продовжити` (only shown when this connect flow was started from inside the wizard; the `/settings` connect flow keeps today's plain "✅ Google Calendar підключено.")
+Keyboard: `Продовжити` (only shown when this connect flow was started from inside the wizard; the `/settings` connect flow keeps today's plain "Google Calendar підключено.")
 
 ```
 Спочатку підключи календар, натиснувши кнопку вище, або натисни «Скасувати».
@@ -89,7 +89,7 @@ Backward compatibility: existing `OAuthState` rows (all short-lived, 10-minute T
 |---|---|
 | `src/bot/conversations/createEvent.ts` | Remove the early `!account \|\| !account.isActive` guard; preview renders `account?.label ?? "не підключено"`; add a connect-and-wait step right before calling `GoogleCalendarProvider.createEvent` |
 | `src/bot/conversations/connectGoogle.ts` | `connectGoogleCalendar` accepts an option to set `resumeWizard: true` on the `OAuthState` it creates |
-| `src/routes/oauthGoogle.ts` | `/callback` reads `oauthState.resumeWizard`; if true, sends the confirmation with a "▶️ Продовжити" button (`wizard:calendar_connected`) instead of the plain text |
+| `src/routes/oauthGoogle.ts` | `/callback` reads `oauthState.resumeWizard`; if true, sends the confirmation with a "Продовжити" button (`wizard:calendar_connected`) instead of the plain text |
 | `src/bot/bot.ts` | New fallback `bot.callbackQuery("wizard:calendar_connected", …)`, registered after the conversations middleware, for stale taps |
 | `prisma/schema.prisma` | `OAuthState.resumeWizard` field + migration |
 

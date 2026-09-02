@@ -27,10 +27,10 @@ Today a user can connect exactly one Google account (`CalendarAccount.userId` is
 ### 3.1 Main scenario
 
 1. User has one Google account connected (`romawcka@gmail.com`), it's the default.
-2. `/settings` → "🔗 Google-акаунти" → "➕ Підключити ще один акаунт" → same OAuth link flow; Google's own account chooser lets them pick a different login (`work@company.com`).
-3. Both now show in the account list; `romawcka@gmail.com` still marked as default (⭐).
-4. User taps `work@company.com` → "⭐ Зробити основним" → it becomes the new default.
-5. In `/new`, the preview's "Calendar" line shows the default account's email. The user taps "✏️ Змінити" → "📅 Календар" (only offered when 2+ active accounts exist) → picks `romawcka@gmail.com` for this one event only — the default itself is unchanged.
+2. `/settings` → "Google-акаунти" → "Підключити ще один акаунт" → same OAuth link flow; Google's own account chooser lets them pick a different login (`work@company.com`).
+3. Both now show in the account list; `romawcka@gmail.com` still marked as default ("(основний)").
+4. User taps `work@company.com` → "Зробити основним" → it becomes the new default.
+5. In `/new`, the preview's "Calendar" line shows the default account's email. The user taps "Змінити" → "Календар" (only offered when 2+ active accounts exist) → picks `romawcka@gmail.com` for this one event only — the default itself is unchanged.
 
 ### 3.2 Edge cases
 
@@ -38,38 +38,38 @@ Today a user can connect exactly one Google account (`CalendarAccount.userId` is
 |---|---|
 | User reconnects the *same* Google login again | Refreshes tokens on the existing row, doesn't create a duplicate |
 | User disconnects the current default account | Default silently falls back to "none"; next `/new` submission that needs a calendar goes through the existing feature-03 connect prompt if no accounts are left active, or the wizard falls back to whichever single account remains active if exactly one is left |
-| User has 0 accounts and opens the account list | Shows just "➕ Підключити акаунт", no list |
+| User has 0 accounts and opens the account list | Shows just "Підключити акаунт", no list |
 | Legacy account connected before this feature shipped (no identity on file yet) | First reconnect after the migration resolves it in place (same row gets identified, not duplicated) — see §9 |
 
 ## 4. Bot text
 
 ```
-⚙️ Налаштування
+Налаштування
 
 Часовий пояс: Europe/Warsaw
 Google-акаунти: 2 підключено, основний romawcka@gmail.com
 Нагадування: за 30 хвилин
 ```
-Keyboard: `🌍 Часовий пояс` · `🔗 Google-акаунти` · `🗑 Видалити всі мої дані`
+Keyboard: `Часовий пояс` · `Google-акаунти` · `Видалити всі мої дані`
 
 Account list screen:
 ```
-🔗 Google-акаунти
+Google-акаунти
 ```
-Keyboard, one row per connected account (⭐ marks the default): `⭐ romawcka@gmail.com` · `work@company.com` · `➕ Підключити ще один акаунт` · `⬅️ Назад`
-When there are no accounts: keyboard is just `➕ Підключити акаунт` · `⬅️ Назад`.
+Keyboard, one row per connected account (default account's label gets a "(основний)" suffix): `romawcka@gmail.com (основний)` · `work@company.com` · `Підключити ще один акаунт` · `Назад`
+When there are no accounts: keyboard is just `Підключити акаунт` · `Назад`.
 
 Per-account actions (after tapping an account in the list):
 ```
 work@company.com
 ```
-Keyboard: `⭐ Зробити основним` (hidden if already default) · `🔌 Відключити` · `⬅️ Назад`
+Keyboard: `Зробити основним` (hidden if already default) · `Відключити` · `Назад`
 
 Preview screen's "Calendar" line now shows the resolved account's email instead of the fixed "Google Calendar" string (already just `formatPreview`'s existing `calendarLabel` parameter — no new line, same slot). Edit menu gets one more button, shown only when 2+ accounts are active:
 ```
 Що поміняти?
 ```
-Keyboard adds: `📅 Календар` → then a picker listing active accounts by email.
+Keyboard adds: `Календар` → then a picker listing active accounts by email.
 
 ## 5. Data changes
 

@@ -270,9 +270,9 @@ const end   = start.plus({ minutes: durationMinutes });
 
 ## 7. The "Date" step
 
-Top-level menu: `Today` · `Tomorrow` · `Custom date` (manual entry `dd/mm/yyyy`) · `📅 Calendar` (opens the inline calendar below).
+Top-level menu: `Today` · `Tomorrow` · `Custom date` (manual entry `dd/mm/yyyy`) · `Calendar` (opens the inline calendar below).
 
-*(Note: the button labels shown to the user are in Ukrainian per `docs/03-BOT-UX.md` — `Сьогодні` / `Завтра` / `Своя дата` / `📅 Календар` — this section describes the mechanics, not the literal copy.)*
+*(Note: the button labels shown to the user are in Ukrainian per `docs/03-BOT-UX.md` — `Сьогодні` / `Завтра` / `Своя дата` / `Календар` — this section describes the mechanics, not the literal copy.)*
 
 ### Inline calendar (date picker)
 
@@ -282,7 +282,7 @@ A custom component, no external libraries:
 - Weekday row: Mon Tue Wed Thu Fri Sat Sun.
 - Day grid; empty cells — `callback_data: 'noop'`.
 - Callback data format: `dp:day:2026-08-14`, `dp:prev:2026-07`, `dp:next:2026-09`.
-- A "⌨️ Enter manually" button — switches to text entry `dd/mm/yyyy`.
+- An "Enter manually" button — switches to text entry `dd/mm/yyyy`.
 - Navigation range: ±3 years from the current date.
 
 ## 8. Wizard state management
@@ -335,7 +335,7 @@ Global `bot.catch` + Express error middleware.
 | Situation | Message to the user |
 |---|---|
 | Google token expired and can't be refreshed | «Доступ до Google Calendar втрачено. Підключи знову: /settings» |
-| Network/5xx from Google | «Календар тимчасово недоступний. Спробуй ще раз за хвилину» + a "🔄 Retry" button (the event draft is preserved) |
+| Network/5xx from Google | «Календар тимчасово недоступний. Спробуй ще раз за хвилину» + a "Retry" button (the event draft is preserved) |
 | Event already deleted in the calendar | «Цю подію вже видалено» + remove it from the list |
 | Invalid input | A specific hint with an example of the correct format |
 

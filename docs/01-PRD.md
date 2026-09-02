@@ -54,12 +54,12 @@ A step-by-step wizard. Each field is a separate bot message and a separate user 
 | 5a | *(if "All day")* — | — | An all-day event on the chosen date |
 | 5b | *(if "Specify time")* Start time | Text `HH:MM` | Validated 00:00-23:59 |
 | 6b | Duration | Buttons `30 min` / `1 h` / `1.5 h` / `2 h` / "Enter custom" | With "Enter custom" — text like `45m`, `2h`, `1h30m`. Crossing midnight is allowed |
-| 7 | Preview | Buttons "✅ Send" / "✏️ Edit" / "❌ Cancel" | The event is created **only** via the "Send" button |
+| 7 | Preview | Buttons "Send" / "Edit" / "Cancel" | The event is created **only** via the "Send" button |
 
 **The preview looks like this:**
 
 ```
-📋 Review the event
+Review the event
 
 Title: Doctor's appointment
 Description: Room 305, pick up test results
@@ -68,20 +68,20 @@ Time: 15:00 – 16:00 (Europe/Warsaw)
 Reminder: 30 minutes before
 Calendar: Google Calendar
 
-[✅ Send]  [✏️ Edit]  [❌ Cancel]
+[Send]  [Edit]  [Cancel]
 ```
 
 The "Edit" button opens a list of fields — the user picks which field to re-answer, then returns to the preview.
 
-After a successful creation: `✅ Event created` + a short card + a "🗑 Delete" button (acts on this specific event).
+After a successful creation: `Event created` + a short card + a "Delete" button (acts on this specific event).
 
 ### 5.3 Viewing and deleting events
 
 The `/events` command (and a menu item):
 
 - Shows upcoming events for the next 30 days, **created via the bot**, sorted by date.
-- Paginated, 5 events per page, "◀️ Back" / "Forward ▶️" buttons.
-- Each event has a "🗑" button.
+- Paginated, 5 events per page, "Back" / "Forward" buttons.
+- Each event has a "Delete" button.
 - Deletion requires confirmation: "Delete 'Doctor's appointment' on Aug 14 at 15:00?" → "Yes, delete" / "Cancel".
 - The event is deleted from the calendar via the API and marked deleted in the DB.
 - If the event was already deleted manually by the user in the calendar — the bot reports this and removes it from the list without an error.
@@ -149,7 +149,7 @@ Rationale: for iteration 1's load — a dozen users, dozens of records a day —
 - **Dialog timeout:** an unfinished wizard expires after 60 minutes, the bot reports this.
 - **External API errors:** the user sees a human-readable message and an offer to retry; technical details go to the log.
 - **Expired Google tokens:** automatic refresh; if that's not possible — ask to reconnect the calendar.
-- **Response to any action:** no longer than 3 seconds (for long operations — "⏳ Creating event…").
+- **Response to any action:** no longer than 3 seconds (for long operations — "Creating event…").
 
 ## 10. Security and privacy
 

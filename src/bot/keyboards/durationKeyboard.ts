@@ -12,5 +12,5 @@ export function buildDurationKeyboard(): InlineKeyboard {
   for (const option of DURATION_OPTIONS) {
     keyboard.text(option.label, `dur:${option.minutes}`).row();
   }
-  return keyboard.text("⌨️ Своя", "dur:custom").row().text("❌ Скасувати", "wizard:cancel");
+  return keyboard.text("Своя", "dur:custom").row().text("Скасувати", "wizard:cancel");
 }

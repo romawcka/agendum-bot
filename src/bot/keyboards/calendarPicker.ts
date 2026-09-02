@@ -93,7 +93,7 @@ export function buildCalendarKeyboard(yearMonth: string): InlineKeyboard {
     keyboard.row();
   }
 
-  keyboard.text("⌨️ Ввести дату", "dp:manual");
+  keyboard.text("Ввести дату", "dp:manual");
 
   return keyboard;
 }
