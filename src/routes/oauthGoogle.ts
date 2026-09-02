@@ -73,6 +73,9 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
     if (!tokens.access_token || !tokens.refresh_token || !tokens.expiry_date) {
       throw new Error("Google didn't return a full set of tokens (need refresh_token — check prompt=consent)");
     }
+    // getToken() only exchanges the code — it doesn't attach the result to the client,
+    // so any authenticated call on `client` (fetchGoogleIdentity below) needs this first.
+    client.setCredentials(tokens);
 
     const user = await prisma.user.findUnique({ where: { telegramId: oauthState.telegramId } });
     if (!user) {
