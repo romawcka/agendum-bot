@@ -40,7 +40,7 @@ export function formatPreview(draft: PreviewDraft, timezone: string, calendarLab
 
   const color = findGoogleEventColor(draft.colorId);
   if (color) {
-    lines.push(`Колір: ${color.emoji} ${color.name}`);
+    lines.push(`Колір: ${color.name}`);
   }
 
   lines.push(`Нагадування: за ${draft.reminderMinutes} хвилин`);

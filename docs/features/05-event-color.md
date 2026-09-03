@@ -2,7 +2,7 @@
 
 **Status:** In progress
 **Created:** 03.09.2026
-**Updated:** 03.09.2026
+**Updated:** 03.09.2026 (revised: 4 colors instead of 11, no emoji, reworded prompt)
 **Iteration:** 2
 
 ---
@@ -14,13 +14,14 @@ Every event created through the bot lands in Google Calendar with the calendar's
 ## 2. Scope
 
 **In:**
-- [x] An optional "color" step in the `/new` wizard, offering Google Calendar's 11 fixed named event colors as buttons.
-- [x] Skippable — skipping leaves `colorId` unset, so the event keeps the calendar's default color (today's behavior, unchanged).
+- [x] An optional "color" step in the `/new` wizard, offering a curated set of **4** distinct, plainly-named colors as buttons (revised down from Google's full 11 — see §9).
+- [x] Skippable ("Ні") — leaves `colorId` unset, so the event keeps the calendar's default color (today's behavior, unchanged).
 - [x] Editable from the preview screen's "Змінити" menu, same as any other field.
 
 **Not in (deliberately deferred):**
-- Custom/arbitrary hex colors — Google Calendar's API doesn't support them for individual events, only these 11 fixed ids.
-- A circular color-wheel / Telegram Mini App picker — considered and rejected with the user: since only 11 discrete colors are ever possible, a wheel would just snap to the nearest one anyway, and isn't worth the added engineering (separate hosted HTML/canvas page, `web_app` button, `web_app_data` handling).
+- Custom/arbitrary hex colors — Google Calendar's API doesn't support them for individual events, only its fixed named ids.
+- Offering all 11 of Google's named colors — reconsidered and reduced to 4; see §9.
+- A circular color-wheel / Telegram Mini App picker — considered and rejected with the user: only a fixed handful of colors are ever possible, so a wheel would just snap to the nearest one anyway, and isn't worth the added engineering (separate hosted HTML/canvas page, `web_app` button, `web_app_data` handling).
 - Changing the color of an already-created event outside the wizard — blocked on iteration 3's "editing created events."
 
 ## 3. Scenarios
@@ -28,35 +29,35 @@ Every event created through the bot lands in Google Calendar with the calendar's
 ### 3.1 Main scenario (pick a color)
 
 1. User goes through `/new` as usual: title, description, date, event type, [time, duration].
-2. Bot asks "Обрати колір події?" with one button per Google color (name + colored-circle emoji) plus "Пропустити" and "Скасувати".
-3. User taps e.g. "🔵 Павич" (Peacock).
-4. Preview screen shows a `Колір: 🔵 Павич` line.
-5. User taps "Надіслати" — the created Google Calendar event has the Peacock color.
+2. Bot asks "Замінити колір події?" with 4 plain-text color buttons plus "Ні" and "Скасувати".
+3. User taps "Синій" (Blue).
+4. Preview screen shows a `Колір: Синій` line.
+5. User taps "Надіслати" — the created Google Calendar event has the Blueberry color.
 
 ### 3.2 Edge cases
 
 | Situation | Behavior |
 |---|---|
-| User taps "Пропустити" | `colorId` stays unset; no `Колір:` line on the preview; event keeps the calendar's default color |
+| User taps "Ні" | `colorId` stays unset; no `Колір:` line on the preview; event keeps the calendar's default color |
 | User sends free text instead of tapping a button | Ignored — this step is buttons-only, same as the all-day/timed step |
-| User reopens "Змінити" → "Колір" after already picking one | Same 11 buttons shown again (no "currently selected" highlight, matching how Duration/Time already work); picking a new one replaces the old choice, picking "Пропустити" clears it |
+| User reopens "Змінити" → "Колір" after already picking one | Same 4 buttons shown again (no "currently selected" highlight, matching how Duration/Time already work); picking a new one replaces the old choice, picking "Ні" clears it |
 | All-day event | Color step still appears — it's unconditional, unlike Time/Duration |
 
 ## 4. Bot text
 
 ```
-Обрати колір події?
+Замінити колір події?
 ```
-Keyboard (two per row): `🟣 Лаванда` `🟢 Шавлія` · `🟣 Виноград` `🔴 Фламінго` · `🟡 Банан` `🟠 Мандарин` · `🔵 Павич` `⚫ Графіт` · `🔵 Чорниця` `🟢 Базилік` · `🔴 Помідор` · `Пропустити` · `Скасувати`
+Keyboard (two per row): `Червоний` `Жовтий` · `Зелений` `Синій` · `Ні` · `Скасувати`
 
 Preview screen gains a conditional line (omitted when skipped, same as `Опис`):
 ```
-Колір: 🔵 Павич
+Колір: Синій
 ```
 
 Edit menu ("«Змінити»") keyboard gains `Колір`, unconditionally (unlike `Календар`, which only shows with 2+ active Google accounts).
 
-The emoji on these 11 buttons and the preview line are the **only** approved exception to the bot-wide no-emoji cleanup (see `docs/03-BOT-UX.md` intro) — here they're a real color swatch (Telegram buttons are plain text, no styling), not decoration. Duplicated into `docs/03-BOT-UX.md` §2.
+No emoji anywhere — plain color names only (see §9: an emoji exception was briefly approved, then revoked in favor of this simpler design). Duplicated into `docs/03-BOT-UX.md` §2.
 
 ## 5. Data changes
 
@@ -70,7 +71,7 @@ Backward compatibility: existing rows get `NULL` (no color was ever recorded for
 
 | What we touch | How |
 |---|---|
-| `src/calendar/colors.ts` | new — the 11-color table (id, Ukrainian name, hex, emoji) + `findGoogleEventColor` lookup |
+| `src/calendar/colors.ts` | new — a curated 4-color table (id, Ukrainian name) + `findGoogleEventColor` lookup |
 | `src/bot/keyboards/colorKeyboard.ts` | new — `buildColorKeyboard()` |
 | `src/calendar/types.ts` | `EventDraft` gains `colorId?: string` |
 | `src/calendar/eventBuilder.ts` | `buildGoogleEventPayload` sets `colorId` on the API payload when present, omitted otherwise (same convention as `description`) |
@@ -93,7 +94,6 @@ Breaking changes: no.
 
 | Risk | Likelihood | What we do |
 |---|---|---|
-| Only ~8 distinct circle emoji exist for 11 colors, so a few buttons share one (Lavender/Grape both 🟣, Peacock/Blueberry both 🔵) — a user might tap the wrong one going by emoji alone | low | The Ukrainian name is always shown alongside and is the authoritative label; emoji is a secondary visual aid only |
 | Google's `colorId` set could change in the future, silently making a hard-coded id map stale | low | `colors.ts` is a single, isolated table — updating it is a one-file change; `findGoogleEventColor` fails closed (returns `undefined`, no crash) for an unrecognized id |
 
 ## 9. Decisions made along the way
@@ -102,3 +102,4 @@ Breaking changes: no.
 - **03.09:** Rejected a circular color-wheel/Mini-App picker — Google only supports 11 fixed colors regardless, so a wheel would just snap to the nearest one; not worth a new hosted web component for that.
 - **03.09:** Approved a narrow, explicit exception to the bot-wide no-emoji policy for these 11 color-swatch buttons only — functional (a real color indicator), not decorative.
 - **03.09:** Left `formatSuccessCard` (the post-creation confirmation card) without a color line, since it's already intentionally terse and omits other fields like description/reminder — adding color there would be the inconsistent choice, not the natural one.
+- **03.09 (revision, same day):** After shipping the 11-color/emoji version, the user asked to simplify: only 4 colors, no emoji, and the prompt reworded from "pick a color" to "replace the event color?" with a "Ні" (No) option. Revoked the emoji exception entirely — 11 names with only ~8 distinct circle emoji meant some colors shared a swatch, which the simpler 4-color/plain-text design sidesteps outright (each of the 4 is unambiguous by name alone, no visual aid needed). Picked the 4 most universally recognizable, maximally distinct colors — Червоний/Жовтий/Зелений/Синій (Red/Yellow/Green/Blue) — mapped to Google's nearest real colorId (Tomato/Banana/Basil/Blueberry). `GoogleEventColor` dropped its `hex`/`emoji` fields since nothing reads them anymore.

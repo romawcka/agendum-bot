@@ -301,7 +301,7 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
 }
 
 async function collectColor(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string | undefined>> {
-  await ctx.reply("Обрати колір події?", { reply_markup: buildColorKeyboard() });
+  await ctx.reply("Замінити колір події?", { reply_markup: buildColorKeyboard() });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
