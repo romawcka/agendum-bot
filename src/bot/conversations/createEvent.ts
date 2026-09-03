@@ -4,7 +4,7 @@ import type { Context } from "grammy";
 import { InlineKeyboard } from "grammy";
 import { DateTime } from "luxon";
 import { GoogleCalendarProvider } from "../../calendar/providers/GoogleCalendarProvider.js";
-import type { EventDraft } from "../../calendar/types.js";
+import type { CreatedEvent, EventDraft } from "../../calendar/types.js";
 import { prisma } from "../../config/db.js";
 import { invalidate } from "../../services/eventsCache.js";
 import { formatPreview, formatSuccessCard, type PreviewDraft } from "../../utils/format.js";
@@ -600,11 +600,20 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
   const connectedAccount = account;
   const eventDraft = toEventDraft(draft, timezone, reminderMinutes);
 
+  let isRetry = false;
   for (;;) {
     await ctx.reply("Створюю подію…");
 
     try {
-      const created = await GoogleCalendarProvider.createEvent(connectedAccount, eventDraft);
+      let created: CreatedEvent;
+      if (isRetry) {
+        // The previous attempt may have actually succeeded (response lost) — check before
+        // creating a duplicate. Falls back to a normal create if nothing matching is found.
+        const existing = await GoogleCalendarProvider.findExistingEvent(connectedAccount, eventDraft);
+        created = existing ?? (await GoogleCalendarProvider.createEvent(connectedAccount, eventDraft));
+      } else {
+        created = await GoogleCalendarProvider.createEvent(connectedAccount, eventDraft);
+      }
       const savedEvent = await conversation.external(() =>
         prisma.event.create({
           data: {
@@ -640,6 +649,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
         return;
       }
 
+      isRetry = true;
       await ctx.reply(
         "Не вдалося створити подію: календар не відповідає.\nЧернетку збережено — можна спробувати ще раз.",
         { reply_markup: buildRetryKeyboard() },

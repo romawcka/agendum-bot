@@ -1,27 +1,29 @@
 import type { CalendarAccount } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { DateTime } from "luxon";
 
-const { insertMock, deleteMock, listMock, calendarListGetMock } = vi.hoisted(() => ({
-  insertMock: vi.fn(),
-  deleteMock: vi.fn(),
-  listMock: vi.fn(),
-  calendarListGetMock: vi.fn(),
-}));
+const { insertMock, deleteMock, listMock, calendarListGetMock, calendarFactoryMock } = vi.hoisted(() => {
+  const insertMock = vi.fn();
+  const deleteMock = vi.fn();
+  const listMock = vi.fn();
+  const calendarListGetMock = vi.fn();
+  const calendarFactoryMock = vi.fn(() => ({
+    events: { insert: insertMock, delete: deleteMock, list: listMock },
+    calendarList: { get: calendarListGetMock },
+  }));
+  return { insertMock, deleteMock, listMock, calendarListGetMock, calendarFactoryMock };
+});
 
 vi.mock("googleapis", () => ({
-  google: {
-    calendar: () => ({
-      events: { insert: insertMock, delete: deleteMock, list: listMock },
-      calendarList: { get: calendarListGetMock },
-    }),
-  },
+  google: { calendar: calendarFactoryMock },
 }));
 
 vi.mock("../src/services/TokenService.js", () => ({
   getValidGoogleClient: vi.fn().mockResolvedValue({}),
 }));
 
-const { GoogleCalendarProvider } = await import("../src/calendar/providers/GoogleCalendarProvider.js");
+const { GoogleCalendarProvider, isMatchingEvent } = await import("../src/calendar/providers/GoogleCalendarProvider.js");
+const { buildEventTimeRange } = await import("../src/calendar/eventBuilder.js");
 const { AppError } = await import("../src/utils/errors.js");
 
 function fakeAccount(overrides: Partial<CalendarAccount> = {}): CalendarAccount {
@@ -55,6 +57,7 @@ beforeEach(() => {
   deleteMock.mockReset();
   listMock.mockReset();
   calendarListGetMock.mockReset();
+  calendarFactoryMock.mockClear();
 });
 
 describe("GoogleCalendarProvider.createEvent", () => {
@@ -78,6 +81,127 @@ describe("GoogleCalendarProvider.createEvent", () => {
     await expect(GoogleCalendarProvider.createEvent(fakeAccount(), DRAFT)).rejects.toMatchObject({
       name: "AppError",
       code: "google_create_failed",
+    });
+  });
+
+  it("bounds every Google API call with a timeout, so a lost response fails fast instead of hanging", async () => {
+    insertMock.mockResolvedValue({ data: { id: "google-event-123" } });
+
+    await GoogleCalendarProvider.createEvent(fakeAccount(), DRAFT);
+
+    expect(calendarFactoryMock).toHaveBeenCalledWith(expect.objectContaining({ timeout: expect.any(Number) }));
+  });
+});
+
+describe("isMatchingEvent", () => {
+  const range = buildEventTimeRange(DRAFT);
+
+  it("matches on exact title and start/end instant", () => {
+    const item = {
+      status: "confirmed",
+      summary: "Event",
+      start: { dateTime: range.start.toISO() },
+      end: { dateTime: range.end.toISO() },
+    };
+    expect(isMatchingEvent(item, DRAFT, range)).toBe(true);
+  });
+
+  it("rejects a title mismatch", () => {
+    const item = {
+      status: "confirmed",
+      summary: "Different title",
+      start: { dateTime: range.start.toISO() },
+      end: { dateTime: range.end.toISO() },
+    };
+    expect(isMatchingEvent(item, DRAFT, range)).toBe(false);
+  });
+
+  it("rejects a time mismatch", () => {
+    const item = {
+      status: "confirmed",
+      summary: "Event",
+      start: { dateTime: range.start.plus({ minutes: 5 }).toISO() },
+      end: { dateTime: range.end.toISO() },
+    };
+    expect(isMatchingEvent(item, DRAFT, range)).toBe(false);
+  });
+
+  it("rejects a cancelled event", () => {
+    const item = {
+      status: "cancelled",
+      summary: "Event",
+      start: { dateTime: range.start.toISO() },
+      end: { dateTime: range.end.toISO() },
+    };
+    expect(isMatchingEvent(item, DRAFT, range)).toBe(false);
+  });
+
+  it("rejects an item missing start/end fields", () => {
+    const item = { status: "confirmed", summary: "Event" };
+    expect(isMatchingEvent(item, DRAFT, range)).toBe(false);
+  });
+
+  it("matches all-day events on date-only start/end", () => {
+    const allDayDraft = { ...DRAFT, allDay: true, startTime: undefined, durationMinutes: undefined };
+    const allDayRange = buildEventTimeRange(allDayDraft);
+    const item = {
+      status: "confirmed",
+      summary: "Event",
+      start: { date: allDayRange.start.toFormat("yyyy-MM-dd") },
+      end: { date: allDayRange.end.toFormat("yyyy-MM-dd") },
+    };
+    expect(isMatchingEvent(item, allDayDraft, allDayRange)).toBe(true);
+  });
+});
+
+describe("GoogleCalendarProvider.findExistingEvent", () => {
+  it("returns null when nothing matches", async () => {
+    listMock.mockResolvedValue({ data: { items: [] } });
+
+    await expect(GoogleCalendarProvider.findExistingEvent(fakeAccount(), DRAFT)).resolves.toBeNull();
+  });
+
+  it("returns the matching event's externalId when found", async () => {
+    const range = buildEventTimeRange(DRAFT);
+    listMock.mockResolvedValue({
+      data: {
+        items: [
+          {
+            id: "google-event-123",
+            status: "confirmed",
+            summary: "Event",
+            start: { dateTime: range.start.toISO() },
+            end: { dateTime: range.end.toISO() },
+          },
+        ],
+      },
+    });
+
+    await expect(GoogleCalendarProvider.findExistingEvent(fakeAccount(), DRAFT)).resolves.toEqual({
+      externalId: "google-event-123",
+    });
+  });
+
+  it("fails open (returns null, doesn't throw) when the list call itself fails", async () => {
+    listMock.mockRejectedValue(new Error("network exploded"));
+
+    await expect(GoogleCalendarProvider.findExistingEvent(fakeAccount(), DRAFT)).resolves.toBeNull();
+  });
+
+  it("adopts the first match when several are found", async () => {
+    const range = buildEventTimeRange(DRAFT);
+    const matching = {
+      status: "confirmed",
+      summary: "Event",
+      start: { dateTime: range.start.toISO() },
+      end: { dateTime: range.end.toISO() },
+    };
+    listMock.mockResolvedValue({
+      data: { items: [{ id: "first", ...matching }, { id: "second", ...matching }] },
+    });
+
+    await expect(GoogleCalendarProvider.findExistingEvent(fakeAccount(), DRAFT)).resolves.toEqual({
+      externalId: "first",
     });
   });
 });
