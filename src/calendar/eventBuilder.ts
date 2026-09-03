@@ -53,6 +53,7 @@ export function buildGoogleEventPayload(draft: EventDraft): calendar_v3.Schema$E
   const base: calendar_v3.Schema$Event = {
     summary: draft.title,
     ...(draft.description ? { description: draft.description } : {}),
+    ...(draft.colorId ? { colorId: draft.colorId } : {}),
     reminders: {
       useDefault: false,
       overrides: [{ method: "popup", minutes: draft.reminderMinutes }],

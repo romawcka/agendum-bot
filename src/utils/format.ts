@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { findGoogleEventColor } from "../calendar/colors.js";
 
 export interface PreviewDraft {
   title: string;
@@ -8,6 +9,7 @@ export interface PreviewDraft {
   startTime?: string; // HH:mm, only if !allDay
   durationMinutes?: number; // only if !allDay
   reminderMinutes: number;
+  colorId?: string;
 }
 
 function formatDateWithWeekday(date: string, timezone: string): string {
@@ -34,6 +36,11 @@ export function formatPreview(draft: PreviewDraft, timezone: string, calendarLab
   } else {
     const { start, end } = formatTimeRange(draft, timezone);
     lines.push(`Час: ${start.toFormat("HH:mm")} – ${end.toFormat("HH:mm")} (${timezone})`);
+  }
+
+  const color = findGoogleEventColor(draft.colorId);
+  if (color) {
+    lines.push(`Колір: ${color.emoji} ${color.name}`);
   }
 
   lines.push(`Нагадування: за ${draft.reminderMinutes} хвилин`);

@@ -52,6 +52,7 @@ interface EventDraft {
   startTime?: string;            // HH:mm, only if !allDay
   durationMinutes?: number;      // only if !allDay
   reminderMinutes: number;       // defaults to 30
+  colorId?: string;              // Google's fixed "1".."11" (src/calendar/colors.ts); absent => calendar's default color
 }
 ```
 
@@ -180,6 +181,7 @@ model Event {
   endsAt            DateTime?             // UTC; null for all-day
   timezone          String
   reminderMinutes   Int
+  colorId           String?               // Google's fixed "1".."11"; null = calendar's default color
   status            String    @default("ACTIVE")   // "ACTIVE" | "DELETED"
   createdAt         DateTime  @default(now())
 
@@ -228,6 +230,7 @@ model OAuthState {
 {
   summary: draft.title,
   ...(draft.description ? { description: draft.description } : {}),
+  ...(draft.colorId ? { colorId: draft.colorId } : {}),  // one of Google's fixed "1".."11" (src/calendar/colors.ts)
   start: { dateTime: startISO, timeZone: draft.timezone },
   end:   { dateTime: endISO,   timeZone: draft.timezone },
   reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: draft.reminderMinutes }] }
@@ -237,6 +240,7 @@ model OAuthState {
 {
   summary: draft.title,
   ...(draft.description ? { description: draft.description } : {}),
+  ...(draft.colorId ? { colorId: draft.colorId } : {}),  // one of Google's fixed "1".."11" (src/calendar/colors.ts)
   start: { date: 'YYYY-MM-DD' },
   end:   { date: 'YYYY-MM-DD' },   // IMPORTANT: end = the next day (exclusive)
   reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: reminderForAllDay }] }

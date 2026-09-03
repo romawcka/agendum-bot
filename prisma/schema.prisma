@@ -64,6 +64,7 @@ model Event {
   endsAt          DateTime? // UTC; null для all-day
   timezone        String
   reminderMinutes Int
+  colorId         String? // Google's fixed "1".."11" (src/calendar/colors.ts); null = calendar's default color
   status          String   @default("ACTIVE") // "ACTIVE" | "DELETED"
   createdAt       DateTime @default(now())
 

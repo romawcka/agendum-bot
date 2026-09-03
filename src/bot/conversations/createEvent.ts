@@ -14,6 +14,8 @@ import type { BotContext } from "../context.js";
 import { buildConfirmKeyboard, buildRetryKeyboard, buildSuccessKeyboard } from "../keyboards/confirmKeyboard.js";
 import { buildCalendarKeyboard, parseCalendarCallback } from "../keyboards/calendarPicker.js";
 import { buildDurationKeyboard } from "../keyboards/durationKeyboard.js";
+import { buildColorKeyboard } from "../keyboards/colorKeyboard.js";
+import { GOOGLE_EVENT_COLORS } from "../../calendar/colors.js";
 import { listActiveAccounts, resolveDefaultAccount } from "../../services/CalendarAccountService.js";
 import { connectGoogleCalendar } from "./connectGoogle.js";
 
@@ -32,6 +34,7 @@ interface WizardDraft {
   date: string;
   startTime?: string;
   durationMinutes?: number;
+  colorId?: string;
 }
 
 type StepUpdate = { kind: "cancel" } | { kind: "text"; text: string } | { kind: "callback"; data: string };
@@ -297,7 +300,23 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
   }
 }
 
-type EditField = "title" | "description" | "date" | "time" | "duration" | "calendar" | "back";
+async function collectColor(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string | undefined>> {
+  await ctx.reply("Обрати колір події?", { reply_markup: buildColorKeyboard() });
+
+  for (;;) {
+    const update = await nextStepUpdate(conversation);
+    if (update.kind === "cancel") return CANCEL;
+    if (update.kind !== "callback") continue; // buttons-only, like collectEventType
+
+    if (update.data === "color:skip") return undefined;
+    if (update.data.startsWith("color:")) {
+      const id = update.data.slice("color:".length);
+      if (GOOGLE_EVENT_COLORS.some((c) => c.id === id)) return id;
+    }
+  }
+}
+
+type EditField = "title" | "description" | "date" | "time" | "duration" | "color" | "calendar" | "back";
 
 async function collectEditField(
   conversation: WizardConversation,
@@ -314,6 +333,7 @@ async function collectEditField(
   if (!opts.allDay) {
     keyboard.text("Час", "edit:time").row().text("Тривалість", "edit:duration").row();
   }
+  keyboard.text("Колір", "edit:color").row();
   if (opts.showCalendarOption) {
     keyboard.text("Календар", "edit:calendar").row();
   }
@@ -408,6 +428,7 @@ function toEventDraft(draft: WizardDraft, timezone: string, reminderMinutes: num
     ...(draft.startTime ? { startTime: draft.startTime } : {}),
     ...(draft.durationMinutes !== undefined ? { durationMinutes: draft.durationMinutes } : {}),
     reminderMinutes,
+    ...(draft.colorId ? { colorId: draft.colorId } : {}),
   };
 }
 
@@ -420,6 +441,7 @@ function toPreviewDraft(draft: WizardDraft, reminderMinutes: number): PreviewDra
     startTime: draft.startTime,
     durationMinutes: draft.durationMinutes,
     reminderMinutes,
+    colorId: draft.colorId,
   };
 }
 
@@ -487,6 +509,10 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
     draft.durationMinutes = durationResult;
   }
 
+  const colorResult = await collectColor(conversation, ctx);
+  if (colorResult === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
+  draft.colorId = colorResult;
+
   // Preview + "Edit" + "Send"/"Cancel"
   // Set once the user explicitly picks a "Calendar" override in the Edit menu — from then
   // on the submit-time refresh re-validates *that* account instead of silently replacing
@@ -540,6 +566,10 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
         const result = await collectDuration(conversation, ctx);
         if (result === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
         draft.durationMinutes = result;
+      } else if (field === "color") {
+        const result = await collectColor(conversation, ctx);
+        if (result === CANCEL) return void (await ctx.reply(CANCEL_TEXT));
+        draft.colorId = result;
       }
       continue;
     }
@@ -593,6 +623,7 @@ export async function createEvent(conversation: WizardConversation, ctx: Context
                   .toJSDate(),
             timezone,
             reminderMinutes,
+            colorId: draft.colorId,
             status: "ACTIVE",
           },
         }),

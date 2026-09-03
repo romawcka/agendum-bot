@@ -211,6 +211,7 @@ Target length — one to two pages. A feature PRD that grows to the size of the 
 | 02 | Removed iCloud/CalDAV — Google only remains | Done (2026-07-31) | this document | yes, §1, §3, §5, §6, §10 edited directly: dropped support for a second provider, ≤1 calendar per user |
 | 03 | Resume the wizard after connecting Google Calendar mid-flow | In progress (2026-09-01) | `docs/features/03-resume-wizard-after-connect.md` | — |
 | 04 | Connect multiple Google accounts, choose which one to create in | In progress (2026-09-01) | `docs/features/04-multiple-google-accounts.md` | yes, §8 edited directly: dropped the ≤1-account-per-user limit |
+| 05 | Event color picker for the `/new` wizard | In progress (2026-09-03) | `docs/features/05-event-color.md` | — |
 
 A row is added the moment work on a feature starts, not after — so the registry reflects the real state, not just what's finished.
 

@@ -7,6 +7,7 @@ export interface EventDraft {
   startTime?: string; // HH:mm, only if !allDay
   durationMinutes?: number; // only if !allDay
   reminderMinutes: number;
+  colorId?: string; // Google's fixed "1".."11" (src/calendar/colors.ts); omitted = calendar's default color
 }
 
 export interface CreatedEvent {

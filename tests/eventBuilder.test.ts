@@ -86,4 +86,14 @@ describe("buildGoogleEventPayload", () => {
     const payload = buildGoogleEventPayload(timedDraft({ reminderMinutes: 30 }));
     expect(payload.reminders).toEqual({ useDefault: false, overrides: [{ method: "popup", minutes: 30 }] });
   });
+
+  it("omits colorId entirely when none is given", () => {
+    const payload = buildGoogleEventPayload(timedDraft({ colorId: undefined }));
+    expect(payload).not.toHaveProperty("colorId");
+  });
+
+  it("includes colorId when given", () => {
+    const payload = buildGoogleEventPayload(timedDraft({ colorId: "7" }));
+    expect(payload.colorId).toBe("7");
+  });
 });
