@@ -54,7 +54,7 @@ Apply existing migrations to the dev DB:
 npx prisma migrate deploy
 ```
 
-The dev copy refreshes itself from the prod DB weekly on `npm run dev` (see `scripts/ensureDevDb.ts`) — no need to recreate it manually.
+Once a week `npm run dev` reminds you that the dev copy has gone stale (see `scripts/ensureDevDb.ts`) and prints the two `turso` commands that recreate it. It does **not** run them by itself: the refresh is a `db destroy` + re-clone, and on 04.09.2026 the Vercel deployment turned out to be pointed at the dev copy — a routine `npm run dev` would have wiped the database production was live on. Set `TURSO_DEV_DB_AUTO_REFRESH=1` in `.env` to opt back into the automatic refresh, once you're sure nothing but your local dev server uses that database.
 
 #### Creating a new migration
 
