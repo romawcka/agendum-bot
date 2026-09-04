@@ -15,7 +15,7 @@ loadDotenv({ override: true });
 
 /**
  * Runs from the predev hook. Only nags — the destructive part is opt-in via
- * AUTO_REFRESH_VAR, or explicit via `npm run db:dev:refresh`.
+ * AUTO_REFRESH_VAR, or explicit via `npm run db:refresh`.
  */
 function main(): void {
   const marker = readMarker();
@@ -39,7 +39,7 @@ function main(): void {
       `[ensureDevDb] The dev copy ${DEV_DB} is older than a week, but the refresh was skipped: ${blocked}.\n` +
         "[ensureDevDb] Recreating it destroys the database and everything in it. Make sure nothing else " +
         "(the Vercel deployment above all) is pointed at it, then run:\n" +
-        "[ensureDevDb]   npm run db:dev:refresh\n" +
+        "[ensureDevDb]   npm run db:refresh\n" +
         `[ensureDevDb] or set ${AUTO_REFRESH_VAR}=1 in .env to let this hook do it unattended.\n` +
         "[ensureDevDb] Continuing with the existing copy.",
     );

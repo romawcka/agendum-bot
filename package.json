@@ -10,7 +10,7 @@
     "postinstall": "prisma generate",
     "predev": "tsx scripts/ensureDevDb.ts",
     "dev": "tsx watch src/index.ts",
-    "db:dev:refresh": "tsx scripts/refreshDevDb.ts",
+    "db:refresh": "tsx scripts/refreshDevDb.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "setup:webhook": "tsx scripts/setup-webhook.ts",

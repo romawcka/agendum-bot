@@ -57,7 +57,7 @@ npx prisma migrate deploy
 To throw away the dev copy and clone a fresh one from prod:
 
 ```bash
-npm run db:dev:refresh
+npm run db:refresh
 ```
 
 It destroys `agendum-bot-dev`, re-clones it from `agendum-bot`, and rewrites `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in your `.env` — a recreated copy always gets a new token, so both have to change together. The values are written straight to the file rather than printed, since the token is a secret.
@@ -149,7 +149,7 @@ scripts/
   setup-webhook.ts            one-time webhook + command menu registration (Vercel)
   tursoDevDb.ts                shared logic for the two scripts below, incl. the destroy guard
   ensureDevDb.ts               staleness check for the Turso dev copy (runs via predev)
-  refreshDevDb.ts              npm run db:dev:refresh — re-clone the dev copy from prod
+  refreshDevDb.ts              npm run db:refresh — re-clone the dev copy from prod
 prisma/schema.prisma
 tests/
 ```

@@ -11,7 +11,7 @@ import {
 loadDotenv({ override: true });
 
 /**
- * `npm run db:dev:refresh` — throws away the local dev copy and clones a fresh
+ * `npm run db:refresh` — throws away the local dev copy and clones a fresh
  * one from prod, then repoints .env at it.
  *
  * Running this by hand is the consent the predev hook deliberately lacks, so it
