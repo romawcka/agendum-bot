@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isValidTimezone } from "../src/utils/datetime.js";
 
 describe("isValidTimezone", () => {
-  it.each(["Europe/Warsaw", "Europe/Moscow", "Europe/Kyiv", "Asia/Tel_Aviv", "America/New_York", "UTC"])(
+  it.each(["Europe/London", "Europe/Warsaw", "Europe/Kyiv", "Asia/Tel_Aviv", "America/New_York", "UTC"])(
     "accepts valid IANA zone %s",
     (zone) => {
       expect(isValidTimezone(zone)).toBe(true);

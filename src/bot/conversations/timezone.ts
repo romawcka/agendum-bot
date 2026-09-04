@@ -7,11 +7,10 @@ type AnyConversation = Conversation<BotContext, import("grammy").Context>;
 
 export function timezoneKeyboard(): InlineKeyboard {
   return new InlineKeyboard()
+    .text("Europe/London", "tz:set:Europe/London")
     .text("Europe/Warsaw", "tz:set:Europe/Warsaw")
-    .text("Europe/Moscow", "tz:set:Europe/Moscow")
     .row()
     .text("Europe/Kyiv", "tz:set:Europe/Kyiv")
-    .text("Asia/Tel_Aviv", "tz:set:Asia/Tel_Aviv")
     .row()
     .text("Ввести інший", "tz:manual");
 }

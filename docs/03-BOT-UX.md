@@ -15,7 +15,7 @@
 
 У якому ти часовому поясі?
 ```
-Клавіатура: `Europe/Warsaw` · `Europe/Moscow` · `Europe/Kyiv` · `Asia/Tel_Aviv` · `Ввести інший`
+Клавіатура (по дві в ряд): `Europe/London` `Europe/Warsaw` · `Europe/Kyiv` · `Ввести інший`
 
 При «Ввести інший»:
 ```
