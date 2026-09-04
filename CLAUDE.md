@@ -55,7 +55,8 @@ Voice, LLM parsing, free text, editing events, recurrence, attendees, reading ot
 ## Commands
 
 ```
-npm run dev            # polling, local (predev auto-refreshes the Turso dev copy weekly)
+npm run dev            # polling, local (predev warns weekly that the Turso dev copy is stale)
+npm run db:dev:refresh # re-clone the dev copy from prod and repoint .env at it
 npm run build
 npm start               # webhook, local build (prod is Vercel, see "npm run setup:webhook")
 npm run setup:webhook   # one-time webhook + command menu registration after deploying to Vercel

@@ -54,7 +54,15 @@ Apply existing migrations to the dev DB:
 npx prisma migrate deploy
 ```
 
-Once a week `npm run dev` reminds you that the dev copy has gone stale (see `scripts/ensureDevDb.ts`) and prints the two `turso` commands that recreate it. It does **not** run them by itself: the refresh is a `db destroy` + re-clone, and on 04.09.2026 the Vercel deployment turned out to be pointed at the dev copy — a routine `npm run dev` would have wiped the database production was live on. Set `TURSO_DEV_DB_AUTO_REFRESH=1` in `.env` to opt back into the automatic refresh, once you're sure nothing but your local dev server uses that database.
+To throw away the dev copy and clone a fresh one from prod:
+
+```bash
+npm run db:dev:refresh
+```
+
+It destroys `agendum-bot-dev`, re-clones it from `agendum-bot`, and rewrites `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in your `.env` — a recreated copy always gets a new token, so both have to change together. The values are written straight to the file rather than printed, since the token is a secret.
+
+Once a week `npm run dev` notices the copy has gone stale and reminds you to run that command, but does **not** run it by itself. The refresh is a `db destroy`, and on 04.09.2026 the Vercel deployment turned out to be pointed at the dev copy — a routine `npm run dev` would have wiped the database production was live on. Set `TURSO_DEV_DB_AUTO_REFRESH=1` in `.env` to opt back into the unattended refresh, once you're sure nothing but your local dev server uses that database. Either way both scripts refuse outright if `.env` names anything other than the dev copy.
 
 #### Creating a new migration
 
@@ -139,7 +147,9 @@ src/
 api/index.ts                 entry point for Vercel (serverless)
 scripts/
   setup-webhook.ts            one-time webhook + command menu registration (Vercel)
-  ensureDevDb.ts               auto-refresh of the Turso dev copy (runs via predev)
+  tursoDevDb.ts                shared logic for the two scripts below, incl. the destroy guard
+  ensureDevDb.ts               staleness check for the Turso dev copy (runs via predev)
+  refreshDevDb.ts              npm run db:dev:refresh — re-clone the dev copy from prod
 prisma/schema.prisma
 tests/
 ```
