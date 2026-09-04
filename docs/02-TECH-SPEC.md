@@ -336,6 +336,8 @@ All variables are validated with Zod at startup — the process fails with a cle
 
 Global `bot.catch` + Express error middleware.
 
+`bot.catch` only covers long polling (`npm run dev`). Under webhooks — which is what production runs — grammY rethrows middleware failures as a `BotError` out of `webhookCallback`, and Express 4 does not catch rejected promises from an async handler. So `createApp()` wraps the webhook route in its own boundary that routes the `BotError` through the same `handleBotError`, and always answers `200` — a non-2xx makes Telegram redeliver the same update, so one failing update would be retried indefinitely. Without this, any handler error crashes the Vercel function instead of reaching the user as a readable message.
+
 | Situation | Message to the user |
 |---|---|
 | Google token expired and can't be refreshed | «Доступ до Google Calendar втрачено. Підключи знову: /settings» |

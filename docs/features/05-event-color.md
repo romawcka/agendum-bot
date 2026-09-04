@@ -87,7 +87,8 @@ Breaking changes: no.
 - [x] `npm run typecheck && npm test` — green (no `lint` script exists in this project; includes 2 new `eventBuilder.test.ts` cases + a new `colors.test.ts`)
 - [x] Text matches section 4
 - [x] The feature registry in `docs/01-PRD.md` is updated, status is set
-- [ ] Migration `20260903101623_add_event_color` applied to the dev Turso DB (`npx prisma migrate deploy`) — pending, blocked by the sandbox from running automatically; run manually
+- [x] Migration `20260903101623_add_event_color` applied to the dev Turso DB (`npx prisma migrate deploy`) — done 04.09.2026
+- [ ] Migration applied to the **prod** Turso DB — pending; needs prod `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in `.env`, which this sandbox doesn't have. Until it runs, every `/events` call on prod fails with `no such column: main.Event.colorId`
 - [ ] Manual verification against real Google Calendar and Telegram (picking a color actually colors the created event; skip leaves the default; edit-menu override works; all-day events still get the step) — not runnable in this sandbox
 
 ## 8. Risks

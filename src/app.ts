@@ -2,9 +2,11 @@ import express, { type Express, type NextFunction, type Request, type RequestHan
 import helmetImport from 'helmet';
 
 const helmet = helmetImport as unknown as (options?: Record<string, unknown>) => RequestHandler;
-import { webhookCallback } from 'grammy';
+import { BotError, webhookCallback } from 'grammy';
 import { randomUUID } from 'node:crypto';
 import { bot, webhookPath } from './bot/bot.js';
+import type { BotContext } from './bot/context.js';
+import { handleBotError } from './bot/middleware/errorHandler.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { healthRouter } from './routes/health.js';
@@ -36,7 +38,29 @@ export function createApp(): Express {
   });
 
   if (env.BOT_MODE === 'webhook') {
-    app.post(webhookPath(), webhookCallback(bot, 'express', { secretToken: env.TELEGRAM_WEBHOOK_SECRET }));
+    const handleWebhook = webhookCallback(bot, 'express', { secretToken: env.TELEGRAM_WEBHOOK_SECRET });
+
+    // bot.catch() only covers long polling: under webhooks grammY's handleUpdate
+    // rethrows as a BotError and webhookCallback hands it back as a rejected
+    // promise, which Express 4 does not catch — it becomes an unhandled rejection
+    // that kills the serverless function, so Telegram never gets a 2xx and retries
+    // the same update forever. This is the webhook-side equivalent of bot.catch().
+    app.post(webhookPath(), (req: Request, res: Response) => {
+      void handleWebhook(req, res).catch(async (err: unknown) => {
+        try {
+          if (err instanceof BotError) {
+            await handleBotError(err as BotError<BotContext>);
+          } else {
+            logger.error({ err, requestId: req.id }, 'Telegram webhook handler failed');
+          }
+        } catch (handlerErr) {
+          logger.error({ err: handlerErr, requestId: req.id }, 'Webhook error handler itself failed');
+        }
+        // Always acknowledge: a non-2xx makes Telegram redeliver this same update,
+        // and an update that always fails would be redelivered indefinitely.
+        if (!res.headersSent) res.status(200).end();
+      });
+    });
   }
 
   // app.get('/', (_req: Request, res: Response) => {
