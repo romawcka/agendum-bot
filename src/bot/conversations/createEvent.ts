@@ -14,7 +14,7 @@ import type { BotContext } from "../context.js";
 import { buildConfirmKeyboard, buildRetryKeyboard, buildSuccessKeyboard } from "../keyboards/confirmKeyboard.js";
 import { buildCalendarKeyboard, parseCalendarCallback } from "../keyboards/calendarPicker.js";
 import { buildDurationKeyboard } from "../keyboards/durationKeyboard.js";
-import { buildColorKeyboard } from "../keyboards/colorKeyboard.js";
+import { buildColorKeyboard, buildColorPromptKeyboard } from "../keyboards/colorKeyboard.js";
 import { GOOGLE_EVENT_COLORS } from "../../calendar/colors.js";
 import { listActiveAccounts, resolveDefaultAccount } from "../../services/CalendarAccountService.js";
 import { connectGoogleCalendar } from "./connectGoogle.js";
@@ -251,7 +251,7 @@ async function collectEventType(conversation: WizardConversation, ctx: Context):
 }
 
 async function collectStartTime(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string>> {
-  await ctx.reply("О котрій початок? Формат ГГ:ХВ, наприклад 15:00", {
+  await ctx.reply("О котрій початок? Наприклад 15:00 або просто 15 — це 15:00", {
     reply_markup: withCancel(new InlineKeyboard()),
   });
 
@@ -262,7 +262,7 @@ async function collectStartTime(conversation: WizardConversation, ctx: Context):
 
     const time = parseTime(update.text);
     if (!time) {
-      await ctx.reply("Не розібрав час. Потрібен формат ГГ:ХВ, наприклад 09:30");
+      await ctx.reply("Не розібрав час. Наприклад 09:30 або просто 9");
       continue;
     }
     return time;
@@ -301,7 +301,7 @@ async function collectDuration(conversation: WizardConversation, ctx: Context): 
 }
 
 async function collectColor(conversation: WizardConversation, ctx: Context): Promise<Cancellable<string | undefined>> {
-  await ctx.reply("Замінити колір події?", { reply_markup: buildColorKeyboard() });
+  await ctx.reply("Замінити колір події?", { reply_markup: buildColorPromptKeyboard() });
 
   for (;;) {
     const update = await nextStepUpdate(conversation);
@@ -309,6 +309,10 @@ async function collectColor(conversation: WizardConversation, ctx: Context): Pro
     if (update.kind !== "callback") continue; // buttons-only, like collectEventType
 
     if (update.data === "color:skip") return undefined;
+    if (update.data === "color:yes") {
+      await ctx.reply("Обери колір", { reply_markup: buildColorKeyboard() });
+      continue;
+    }
     if (update.data.startsWith("color:")) {
       const id = update.data.slice("color:".length);
       if (GOOGLE_EVENT_COLORS.some((c) => c.id === id)) return id;

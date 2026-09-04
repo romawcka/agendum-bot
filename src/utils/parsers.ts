@@ -12,10 +12,20 @@ export function parseManualDate(text: string): string | undefined {
   return parsed.isValid ? parsed.toFormat("yyyy-MM-dd") : undefined;
 }
 
-/** Strictly ГГ:ХВ, 00:00-23:59. Returns the normalized HH:mm or undefined if invalid. */
+/** ГГ:ХВ or a bare hour (11 -> 11:00), 00:00-23:59. Returns the normalized HH:mm or undefined if invalid. */
 export function parseTime(text: string): string | undefined {
-  const match = text.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
-  return match ? `${match[1]}:${match[2]}` : undefined;
+  const match = text.trim().match(/^(\d{1,2})(?::(\d{2}))?$/);
+  if (!match) {
+    return undefined;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = match[2] === undefined ? 0 : Number(match[2]);
+  if (hours > 23 || minutes > 59) {
+    return undefined;
+  }
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 export type DurationParseResult = { ok: true; minutes: number } | { ok: false; reason: "invalid" | "too_long" };

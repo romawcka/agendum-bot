@@ -2,7 +2,7 @@
 
 **Status:** In progress
 **Created:** 03.09.2026
-**Updated:** 03.09.2026 (revised: 4 colors instead of 11, no emoji, reworded prompt)
+**Updated:** 04.09.2026 (revised again: the prompt is now a Так/Ні question, colors shown only after «Так»)
 **Iteration:** 2
 
 ---
@@ -29,18 +29,20 @@ Every event created through the bot lands in Google Calendar with the calendar's
 ### 3.1 Main scenario (pick a color)
 
 1. User goes through `/new` as usual: title, description, date, event type, [time, duration].
-2. Bot asks "Замінити колір події?" with 4 plain-text color buttons plus "Ні" and "Скасувати".
-3. User taps "Синій" (Blue).
-4. Preview screen shows a `Колір: Синій` line.
-5. User taps "Надіслати" — the created Google Calendar event has the Blueberry color.
+2. Bot asks "Замінити колір події?" with `Так` / `Ні` / `Скасувати`.
+3. User taps "Так", the bot answers "Обери колір" with the 4 plain-text color buttons.
+4. User taps "Синій" (Blue).
+5. Preview screen shows a `Колір: Синій` line.
+6. User taps "Надіслати" — the created Google Calendar event has the Blueberry color.
 
 ### 3.2 Edge cases
 
 | Situation | Behavior |
 |---|---|
 | User taps "Ні" | `colorId` stays unset; no `Колір:` line on the preview; event keeps the calendar's default color |
+| User taps "Так" then ignores the color buttons | The step keeps waiting — same buttons-only loop as before; "Скасувати" is the only way out |
 | User sends free text instead of tapping a button | Ignored — this step is buttons-only, same as the all-day/timed step |
-| User reopens "Змінити" → "Колір" after already picking one | Same 4 buttons shown again (no "currently selected" highlight, matching how Duration/Time already work); picking a new one replaces the old choice, picking "Ні" clears it |
+| User reopens "Змінити" → "Колір" after already picking one | The whole step replays from the Так/Ні question (no "currently selected" highlight, matching how Duration/Time already work); picking a new one replaces the old choice, picking "Ні" clears it |
 | All-day event | Color step still appears — it's unconditional, unlike Time/Duration |
 
 ## 4. Bot text
@@ -48,7 +50,11 @@ Every event created through the bot lands in Google Calendar with the calendar's
 ```
 Замінити колір події?
 ```
-Keyboard (two per row): `Червоний` `Жовтий` · `Зелений` `Синій` · `Ні` · `Скасувати`
+Keyboard: `Так` `Ні` · `Скасувати`. Only after «Так»:
+```
+Обери колір
+```
+Keyboard (two per row): `Червоний` `Жовтий` · `Зелений` `Синій` · `Скасувати`
 
 Preview screen gains a conditional line (omitted when skipped, same as `Опис`):
 ```
@@ -72,7 +78,7 @@ Backward compatibility: existing rows get `NULL` (no color was ever recorded for
 | What we touch | How |
 |---|---|
 | `src/calendar/colors.ts` | new — a curated 4-color table (id, Ukrainian name) + `findGoogleEventColor` lookup |
-| `src/bot/keyboards/colorKeyboard.ts` | new — `buildColorKeyboard()` |
+| `src/bot/keyboards/colorKeyboard.ts` | new — `buildColorPromptKeyboard()` (Так/Ні) and `buildColorKeyboard()` (the 4 colors) |
 | `src/calendar/types.ts` | `EventDraft` gains `colorId?: string` |
 | `src/calendar/eventBuilder.ts` | `buildGoogleEventPayload` sets `colorId` on the API payload when present, omitted otherwise (same convention as `description`) |
 | `src/bot/conversations/createEvent.ts` | `WizardDraft` gains `colorId`; new `collectColor` collector wired into the main flow (after duration) and into the Edit menu (`EditField` gains `"color"`); `toEventDraft`/`toPreviewDraft` pass it through; `prisma.event.create` persists it |
@@ -88,7 +94,7 @@ Breaking changes: no.
 - [x] Text matches section 4
 - [x] The feature registry in `docs/01-PRD.md` is updated, status is set
 - [x] Migration `20260903101623_add_event_color` applied to the dev Turso DB (`npx prisma migrate deploy`) — done 04.09.2026
-- [ ] Migration applied to the **prod** Turso DB — pending; needs prod `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` in `.env`, which this sandbox doesn't have. Until it runs, every `/events` call on prod fails with `no such column: main.Event.colorId`
+- [x] Migration applied to the **prod** Turso DB (`agendum-bot`) — done 04.09.2026, together with the other four; the database was empty until then
 - [ ] Manual verification against real Google Calendar and Telegram (picking a color actually colors the created event; skip leaves the default; edit-menu override works; all-day events still get the step) — not runnable in this sandbox
 
 ## 8. Risks
@@ -104,3 +110,4 @@ Breaking changes: no.
 - **03.09:** Approved a narrow, explicit exception to the bot-wide no-emoji policy for these 11 color-swatch buttons only — functional (a real color indicator), not decorative.
 - **03.09:** Left `formatSuccessCard` (the post-creation confirmation card) without a color line, since it's already intentionally terse and omits other fields like description/reminder — adding color there would be the inconsistent choice, not the natural one.
 - **03.09 (revision, same day):** After shipping the 11-color/emoji version, the user asked to simplify: only 4 colors, no emoji, and the prompt reworded from "pick a color" to "replace the event color?" with a "Ні" (No) option. Revoked the emoji exception entirely — 11 names with only ~8 distinct circle emoji meant some colors shared a swatch, which the simpler 4-color/plain-text design sidesteps outright (each of the 4 is unambiguous by name alone, no visual aid needed). Picked the 4 most universally recognizable, maximally distinct colors — Червоний/Жовтий/Зелений/Синій (Red/Yellow/Green/Blue) — mapped to Google's nearest real colorId (Tomato/Banana/Basil/Blueberry). `GoogleEventColor` dropped its `hex`/`emoji` fields since nothing reads them anymore.
+- **04.09 (second revision):** The four colors were shown up front, so every single event creation ended with a five-button wall the user had to read past. Split into a plain Так/Ні question first — the common case («Ні») is now one tap on a two-button keyboard, and the palette only appears for someone who actually wants it. The step still can't be skipped silently, which was the point of asking at all.

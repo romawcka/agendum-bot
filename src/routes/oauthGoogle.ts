@@ -12,13 +12,34 @@ import {
 
 export const oauthGoogleRouter = Router();
 
-function htmlPage(body: string): string {
-  return `<!doctype html><html lang="uk"><meta charset="utf-8"><body style="font-family: sans-serif; text-align: center; padding-top: 3rem;"><p>${body}</p></body></html>`;
+function htmlPage(body: string, redirectTo?: string): string {
+  const head = redirectTo ? `<meta http-equiv="refresh" content="0; url=${redirectTo}">` : "";
+  return `<!doctype html><html lang="uk"><meta charset="utf-8">${head}<body style="font-family: sans-serif; text-align: center; padding-top: 3rem;"><p>${body}</p></body></html>`;
 }
 
 const LINK_INVALID_PAGE = htmlPage("Посилання недійсне або протермінувалося. Повернись у Telegram і спробуй знову.");
-const SUCCESS_PAGE = htmlPage("Можна повернутися в Telegram.");
 const GENERIC_ERROR_PAGE = htmlPage("Не вдалося підключити Google Calendar. Повернись у Telegram і спробуй знову.");
+
+let botLinkPromise: Promise<string | undefined> | undefined;
+
+async function telegramBotLink(): Promise<string | undefined> {
+  botLinkPromise ??= bot.api
+    .getMe()
+    .then((me) => (/^[A-Za-z0-9_]{1,32}$/.test(me.username) ? `https://t.me/${me.username}` : undefined))
+    .catch((err: unknown) => {
+      logger.warn({ err }, "Could not resolve the bot username for the OAuth redirect");
+      botLinkPromise = undefined;
+      return undefined;
+    });
+  return botLinkPromise;
+}
+
+async function successPage(): Promise<string> {
+  const link = await telegramBotLink();
+  return link
+    ? htmlPage(`Готово. Повертаємось у Telegram… <a href="${link}">Відкрити</a>`, link)
+    : htmlPage("Можна повернутися в Telegram.");
+}
 
 oauthGoogleRouter.get("/start", async (req, res) => {
   const state = typeof req.query.state === "string" ? req.query.state : undefined;
@@ -125,7 +146,7 @@ oauthGoogleRouter.get("/callback", async (req, res) => {
     } else {
       await bot.api.sendMessage(oauthState.telegramId.toString(), "Google Calendar підключено.");
     }
-    res.send(SUCCESS_PAGE);
+    res.send(await successPage());
   } catch (err) {
     logger.error({ err }, "Error handling Google OAuth callback");
     res.status(500).send(GENERIC_ERROR_PAGE);

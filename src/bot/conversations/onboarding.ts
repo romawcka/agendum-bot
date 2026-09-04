@@ -26,7 +26,7 @@ async function collectCalendarConnect(
   telegramId: number,
 ): Promise<void> {
   await connectGoogleCalendar(conversation, ctx);
-  await ctx.reply("Як підключиш — натисни «Готово».", { reply_markup: calendarConnectKeyboard() });
+  await ctx.reply("Як підключиш — повертайся сюди.", { reply_markup: calendarConnectKeyboard() });
 
   for (;;) {
     const update = await conversation.waitForCallbackQuery(["cal:done"]);

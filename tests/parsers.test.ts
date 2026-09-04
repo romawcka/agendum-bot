@@ -37,7 +37,18 @@ describe("parseTime", () => {
     expect(parseTime("23:59")).toBe("23:59");
   });
 
-  it.each(["24:00", "23:60", "9:30", "930", "noon", ""])("rejects %s", (input) => {
+  it("pads a single-digit hour", () => {
+    expect(parseTime("9:30")).toBe("09:30");
+  });
+
+  it("treats a bare hour as :00", () => {
+    expect(parseTime("11")).toBe("11:00");
+    expect(parseTime("9")).toBe("09:00");
+    expect(parseTime("0")).toBe("00:00");
+    expect(parseTime("23")).toBe("23:00");
+  });
+
+  it.each(["24", "24:00", "23:60", "930", "11:0", "-1", "noon", ""])("rejects %s", (input) => {
     expect(parseTime(input)).toBeUndefined();
   });
 });
